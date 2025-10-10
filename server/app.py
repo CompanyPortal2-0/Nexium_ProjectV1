@@ -21,6 +21,23 @@ def login():
 
     return jsonify({"message": "wrong method"}), 402
 
+@app.route('/signup', methods=['POST'])
+def signUp():
+    data = request.get_json()
+    if request.method=='POST' :
+        email = data.get('email')
+        firstName=data.get('FirstName')
+        lastName = data.get('LastName')
+        Password = data.get('Password')
+        DateOfBirth = data.get('DateOfBirth')
+        address = data.get('Address')
+
+        if userHelper.CreateUser(email,firstName,lastName,DateOfBirth,address,Password) is not None :
+            return jsonify({"RedirectionLink": "test.test", "accessToken": "testtttt"}), 200
+        else :
+            return jsonify({"Text": "mail used"}), 401
+    else:
+        return jsonify({"message": "wrong method"}), 402
 
 if __name__ == '__main__':
     app.run(debug=True)
