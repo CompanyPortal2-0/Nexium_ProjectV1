@@ -1,0 +1,3 @@
+package modeles
+
+type admin
