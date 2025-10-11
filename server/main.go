@@ -1,7 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"server/modeles"
+)
 
 func main() {
-    fmt.Println("Hello, World!")
+	u := modeles.User{Name: "Alice", Age: 30}
+	fmt.Println(u.ToStringUser())
 }
