@@ -8,16 +8,16 @@ from modeles.role import ROLE
 class User:
 
 
-    def __init__(self,Email=None, FirstName=None, LastName=None,  ID=None,DateOfBirth=None,  Address=None):
+    def __init__(self,Email=None, FirstName=None, LastName=None,  ID=None,DateOfBirth=None,  Address=None , EmployeesList=None,Department=None,Role=ROLE.GUEST) :
         self.ID = ID
         self.FirstName = FirstName
         self.LastName = LastName
         self.DateOfBirth = DateOfBirth
         self.Email = Email
         self.Address = Address
-        self.EmployeesList = []
-        self.Department = None
-        self.Role = ROLE.GUEST
+        self.EmployeesList = EmployeesList
+        self.Department = Department
+        self.Role = Role
 
     def getId(self):
         return self.ID
@@ -73,3 +73,33 @@ class User:
         self.Role = role
     def __str__(self):
         return "User(ID=%r, FirstName=%r, LastName=%r)" % (self.ID, self.FirstName, self.LastName)
+    def to_dict(self):
+        return {
+            'ID': self.ID,
+            'FirstName': self.FirstName,
+            'LastName': self.LastName,
+            'DateOfBirth': self.DateOfBirth,
+            'Email': self.Email,
+            'Address': self.Address,
+            'EmployeesList': self.EmployeesList,
+            'Department': self.Department.name if self.Department else None,
+            'Role': self.Role.name if self.Role else None
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        from modeles.department import Department
+        from modeles.role import ROLE
+        department = Department[data['Department']] if data.get('Department') else None
+        role = ROLE[data['Role']] if data.get('Role') else ROLE.GUEST
+        return cls(
+            ID=data.get('ID'),
+            FirstName=data.get('FirstName'),
+            LastName=data.get('LastName'),
+            DateOfBirth=data.get('DateOfBirth'),
+            Email=data.get('Email'),
+            Address=data.get('Address'),
+            EmployeesList=data.get('EmployeesList'),
+            Department=department,
+            Role=role
+        )

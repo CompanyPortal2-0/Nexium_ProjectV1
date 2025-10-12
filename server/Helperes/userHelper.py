@@ -1,23 +1,36 @@
+import uuid
+
 from modeles.user import User
+from testStore.userJson import JsonUserStore
+from Helperes.passwordHelper import passwordHelper
+
 
 class userHelper :
+
+
     @staticmethod
     def getUserByEmail(email: str) -> User:
-        # Simulate a user lookup
-        return User(Email=email, FirstName="John", LastName="Doe")
+        AllUseres = JsonUserStore("./userJson.json").get_all_users()
+        for user in AllUseres:
+            if user.Email == email:
+                return user
+        return  "ejjaw"
 
     @staticmethod
     def CreateUser(Email, FirstName, LastName,  DateOfBirth,  Address , password) -> bool:
-        ID = 55
+        Jstore = JsonUserStore("./userJson.json")
+        ID = str(uuid.uuid4())
         newUser = User(Email, FirstName, LastName, ID, DateOfBirth, Address)
-
+        Jstore.add_user(newUser)
+        passwordHelper.assignPasswordToUser(newUser.ID, password)
         return True
 
+
     @staticmethod
-    def getAllUsers() :
-        users = [
-            # njibo users ml base de donner
-            ]
+    def getAllUsers(type) :
+        users = JsonUserStore("./userJson.json").get_all_users()
+        if type is not None :
+            users = [user for user in users if user.Role == type]
         return users
 
     @staticmethod
