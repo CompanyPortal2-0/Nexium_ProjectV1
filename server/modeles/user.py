@@ -1,5 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass
+
+from modeles.department import Department
+from modeles.role import ROLE
+
+
 class User:
 
 
@@ -10,6 +15,9 @@ class User:
         self.DateOfBirth = DateOfBirth
         self.Email = Email
         self.Address = Address
+        self.EmployeesList = []
+        self.Department = None
+        self.Role = ROLE.GUEST
 
     def getId(self):
         return self.ID
@@ -47,5 +55,21 @@ class User:
     def setAddress(self, address):
         self.Address = address
 
+    def getEmployeesList(self):
+        return self.EmployeesList
+
+    def setEmployeesList(self, employees):
+        self.EmployeesList = list(employees)
+    def getDepartment(self):
+        return self.Department
+
+    def setDepartment(self, department: Department):
+        self.Department = department
+
+    def getRole(self):
+        return self.Role
+
+    def setRole(self, role: ROLE):
+        self.Role = role
     def __str__(self):
         return "User(ID=%r, FirstName=%r, LastName=%r)" % (self.ID, self.FirstName, self.LastName)
