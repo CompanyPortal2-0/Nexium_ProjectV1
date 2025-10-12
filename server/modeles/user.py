@@ -15,7 +15,8 @@ class User:
         self.DateOfBirth = DateOfBirth
         self.Email = Email
         self.Address = Address
-        self.EmployeesList = EmployeesList
+        # Ensure EmployeesList is always a list
+        self.EmployeesList = EmployeesList if EmployeesList is not None else []
         self.Department = Department
         self.Role = Role
 

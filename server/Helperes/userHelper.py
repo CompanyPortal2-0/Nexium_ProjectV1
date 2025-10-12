@@ -20,7 +20,8 @@ class userHelper :
     def CreateUser(Email, FirstName, LastName,  DateOfBirth,  Address , password) -> bool:
         Jstore = JsonUserStore("./userJson.json")
         ID = str(uuid.uuid4())
-        newUser = User(Email, FirstName, LastName, ID, DateOfBirth, Address)
+        # Pass an empty list for EmployeesList
+        newUser = User(Email, FirstName, LastName, ID, DateOfBirth, Address, EmployeesList=[])
         Jstore.add_user(newUser)
         passwordHelper.assignPasswordToUser(newUser.ID, password)
         return True
@@ -41,6 +42,3 @@ class userHelper :
     def removeEmployee(user, emp):
         if emp in user.EmployeesList:
             user.EmployeesList.remove(emp)
-
-
-
