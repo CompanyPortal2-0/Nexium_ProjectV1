@@ -1,0 +1,48 @@
+{
+  "f3eabcfa-5dcb-426c-881f-afb42475e0a5": {
+    "ID": "f3eabcfa-5dcb-426c-881f-afb42475e0a5",
+    "FirstName": "dzd",
+    "LastName": "fedzdfsf",
+    "DateOfBirth": "2025-12-05",
+    "Email": "eerf",
+    "Address": "fef efef",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "HR"
+  },
+  "8064f68c-f9ba-481d-9252-360421d3d815": {
+    "ID": "8064f68c-f9ba-481d-9252-360421d3d815",
+    "FirstName": "dzd",
+    "LastName": "fedzdfsf",
+    "DateOfBirth": "2025-12-05",
+    "Email": "eerf.tr",
+    "Address": "fef efef",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "EMPLOYER"
+  },
+  "dc6e978a-a95f-4f8a-8ce1-9024ee6a175b": {
+    "ID": "dc6e978a-a95f-4f8a-8ce1-9024ee6a175b",
+    "FirstName": "dzd",
+    "LastName": "fedzdfsf",
+    "DateOfBirth": "2025-12-05",
+    "Email": "eerf.tr.cd",
+    "Address": "fef efef",
+    "EmployeesList": [
+      "eerf.tr"
+    ],
+    "Department": null,
+    "Role": "MANAGER"
+  },
+  "d3cdb906-956b-4d50-96aa-414b0fd71f1c": {
+    "ID": "d3cdb906-956b-4d50-96aa-414b0fd71f1c",
+    "FirstName": "YQSSIN",
+    "LastName": ";qs3oud",
+    "DateOfBirth": "2025-12-05",
+    "Email": "yqssin;qssss.655",
+    "Address": "fef efef",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "HR"
+  }
+}
