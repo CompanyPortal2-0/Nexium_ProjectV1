@@ -1,48 +1,145 @@
 {
-  "f3eabcfa-5dcb-426c-881f-afb42475e0a5": {
-    "ID": "f3eabcfa-5dcb-426c-881f-afb42475e0a5",
-    "FirstName": "dzd",
-    "LastName": "fedzdfsf",
-    "DateOfBirth": "2025-12-05",
-    "Email": "eerf",
-    "Address": "fef efef",
+  "43825ce3-aa7e-4313-9121-bd44dec91c27": {
+    "ID": "43825ce3-aa7e-4313-9121-bd44dec91c27",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userHR@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
     "EmployeesList": [],
     "Department": null,
     "Role": "HR"
   },
-  "8064f68c-f9ba-481d-9252-360421d3d815": {
-    "ID": "8064f68c-f9ba-481d-9252-360421d3d815",
-    "FirstName": "dzd",
-    "LastName": "fedzdfsf",
-    "DateOfBirth": "2025-12-05",
-    "Email": "eerf.tr",
-    "Address": "fef efef",
+  "9ecf90d2-c49b-4700-ac69-11054c766ee3": {
+    "ID": "9ecf90d2-c49b-4700-ac69-11054c766ee3",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userMAN@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
     "EmployeesList": [],
-    "Department": null,
-    "Role": "EMPLOYER"
-  },
-  "dc6e978a-a95f-4f8a-8ce1-9024ee6a175b": {
-    "ID": "dc6e978a-a95f-4f8a-8ce1-9024ee6a175b",
-    "FirstName": "dzd",
-    "LastName": "fedzdfsf",
-    "DateOfBirth": "2025-12-05",
-    "Email": "eerf.tr.cd",
-    "Address": "fef efef",
-    "EmployeesList": [
-      "eerf.tr"
-    ],
     "Department": null,
     "Role": "MANAGER"
   },
-  "d3cdb906-956b-4d50-96aa-414b0fd71f1c": {
-    "ID": "d3cdb906-956b-4d50-96aa-414b0fd71f1c",
-    "FirstName": "YQSSIN",
-    "LastName": ";qs3oud",
-    "DateOfBirth": "2025-12-05",
-    "Email": "yqssin;qssss.655",
-    "Address": "fef efef",
+  "712a5165-26f4-450d-b9e6-4e67dbd5d4a5": {
+    "ID": "712a5165-26f4-450d-b9e6-4e67dbd5d4a5",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userEMP@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
     "EmployeesList": [],
     "Department": null,
-    "Role": "HR"
+    "Role": "GUEST"
+  },
+  "cd76b1ff-a55e-412d-8723-9fe3ef228136": {
+    "ID": "cd76b1ff-a55e-412d-8723-9fe3ef228136",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userEMP@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "a8ee700b-bc01-4ad3-a42b-d06aeec62a34": {
+    "ID": "a8ee700b-bc01-4ad3-a42b-d06aeec62a34",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userEMP@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "4ee4512a-f1c5-4345-8fbe-33e95d7d20c5": {
+    "ID": "4ee4512a-f1c5-4345-8fbe-33e95d7d20c5",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userEMP@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "0d61bd42-5612-4117-a6be-07e037bf1bd4": {
+    "ID": "0d61bd42-5612-4117-a6be-07e037bf1bd4",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userEMP@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "29e4a972-e785-46d1-898c-7b7964a7776b": {
+    "ID": "29e4a972-e785-46d1-898c-7b7964a7776b",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userEMP@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "794f7dde-d1c7-4130-bc50-bfd8c7c0a7e1": {
+    "ID": "794f7dde-d1c7-4130-bc50-bfd8c7c0a7e1",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userEMP@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "de05fa55-d148-4c77-a694-f1cb30018b89": {
+    "ID": "de05fa55-d148-4c77-a694-f1cb30018b89",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userEMP@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "03b2d46e-a903-45be-81e7-4b9442adecda": {
+    "ID": "03b2d46e-a903-45be-81e7-4b9442adecda",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userEMP@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "7ea61f86-8760-48b3-bda5-cd730a52dc08": {
+    "ID": "7ea61f86-8760-48b3-bda5-cd730a52dc08",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userEMP@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "246d7d7a-3c38-49fc-92f9-d220daddb718": {
+    "ID": "246d7d7a-3c38-49fc-92f9-d220daddb718",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test.userEMP@example.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
   }
 }

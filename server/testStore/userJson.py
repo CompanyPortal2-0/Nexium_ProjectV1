@@ -46,6 +46,18 @@ class JsonUserStore:
             return True
         return False
 
+
+    def update_user(self ,user):
+        """Update an existing user in the JSON file"""
+        data = self.get_all_users()
+
+        # Find and update the user by ID
+        for existing_user in data:
+                if existing_user['ID'] == user.ID:
+                    data['users'][existing_user['ID']] = user.to_dict()
+                    self._write(data)
+                    return True
+
     def user_exists(self, userid: str) -> bool:
         """Check if a user exists"""
         data = self._read()

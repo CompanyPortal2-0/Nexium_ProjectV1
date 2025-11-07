@@ -24,7 +24,7 @@ class userHelper :
         newUser = User(Email, FirstName, LastName, ID, DateOfBirth, Address, EmployeesList=[])
         Jstore.add_user(newUser)
         passwordHelper.assignPasswordToUser(newUser.ID, password)
-        return True
+        return newUser
 
 
     @staticmethod
@@ -38,7 +38,13 @@ class userHelper :
     def addEmployee(usr, emp):
         if emp not in usr.EmployeesList:
             usr.EmployeesList.append(emp)
+            Jstore = JsonUserStore("./userJson.json")
+            Jstore.update_user(usr)
+
     @staticmethod
     def removeEmployee(user, emp):
         if emp in user.EmployeesList:
             user.EmployeesList.remove(emp)
+            Jstore = JsonUserStore("./userJson.json")
+            Jstore.update_user(user)
+

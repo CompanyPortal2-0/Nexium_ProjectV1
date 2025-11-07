@@ -3,6 +3,7 @@ from flask import Flask, jsonify, render_template, session, send_from_directory,
 
 from Helperes.userHelper import userHelper
 from Helperes.passwordHelper import passwordHelper
+from Helperes.Code_helper import codeHelper
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from modeles.role import ROLE
 from testStore.userJson import JsonUserStore
@@ -40,7 +41,13 @@ def signUp():
     Password = data.get('Password')
     DateOfBirth = data.get('DateOfBirth')
     address = data.get('Address')
-    if userHelper.CreateUser(email,firstName,lastName,DateOfBirth,address,Password) is not None :
+    Code = data.get('Code')
+    ManagerId = codeHelper.getManagerMAILByCode(Code)
+    NewUser = userHelper.CreateUser(email,firstName,lastName,DateOfBirth,address,Password)
+    if NewUser is not None :
+        Manager=userHelper.getUserByEmail(ManagerId)
+        userHelper.addEmployee(Manager, NewUser)
+
         return jsonify({"RedirectionLink": "testStore.testStore", "accessToken": "testtttt"}), 200
     else :
         return jsonify({"Text": "mail used"}), 401
@@ -89,5 +96,21 @@ def assemployee():
 
     JsonUserStore("./userJson.json").add_user(manager)
     return jsonify({"Text": "employee assigned"}), 200
+
+
+@app.route('/hr/generatecode', methods=['GET'])
+@jwt_required()
+def generatecode():
+    current_employer = userHelper.getUserByEmail(get_jwt_identity())
+    if current_employer is None or current_employer.getRole() != ROLE.HR:
+        return jsonify({"Text": "not authorized"}), 401
+    code = codeHelper.generateCode()
+    data = request.get_json()
+    manager_mail = data.get('manager_mail')
+    codeHelper().saveCode(code, manager_mail)
+
+    return jsonify({"invitationCode": code}), 200
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port=6021, debug=False)
