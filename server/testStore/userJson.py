@@ -61,7 +61,7 @@ class JsonUserStore:
             'Email': user.Email,
             'Address': user.Address,
             'EmployeesList': user.EmployeesList,
-            'Department': user.Department.to_dict() if user.Department else None,  # Assuming Department has to_dict()
+            'Department': user.Department.value if user.Department else None,
             'Role': user.Role.value if isinstance(user.Role, ROLE) else user.Role
         }
 
@@ -70,7 +70,7 @@ class JsonUserStore:
         # Reconstruct Department if it exists
         department = None
         if data.get('Department'):
-            department = Department.from_dict(data['Department'])  # Assuming Department has from_dict()
+            department = Department(data['Department'])
 
         # Reconstruct Role
         role = ROLE(data.get('Role', ROLE.GUEST.value)) if data.get('Role') else ROLE.GUEST
