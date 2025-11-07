@@ -20,62 +20,55 @@ try:
     print("🔍 SUPABASE CONFIGURATION CHECK")
     print("="*60)
     
-    SUPABASE_URL = os.getenv("SUPABASE_URL", None)
-    SUPABASE_KEY = os.getenv("SUPABASE_KEY", None)
+    SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:8000")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "your-super-secret-jwt-token-with-at-least-32-characters-long")
     
     print(f"📋 SUPABASE_URL: {SUPABASE_URL if SUPABASE_URL else '❌ NOT SET'}")
     print(f"📋 SUPABASE_KEY: {SUPABASE_KEY[:20] + '...' if SUPABASE_KEY else '❌ NOT SET'}")
     
-    # Determine if we should use Supabase
-    use_supabase = False
+    # Supabase is REQUIRED - no fallback mode
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print(f"\n❌ ERROR: Supabase credentials are REQUIRED!")
+        print(f"   This app uses ONLY Supabase authentication.")
+        print(f"\n   Please create a .env file with:")
+        print(f"   SUPABASE_URL=http://localhost:9999 (for local Docker)")
+        print(f"   SUPABASE_KEY=your-anon-key")
+        print(f"\n   Get the key with: supabase status")
+        print("="*60 + "\n")
+        sys.exit(1)
     
-    # Only initialize Supabase if credentials are provided (supports both cloud and local Docker instances)
-    if SUPABASE_URL and SUPABASE_KEY:
-        # Detect if using local Supabase (Docker)
-        is_local_supabase = "localhost" in SUPABASE_URL or "127.0.0.1" in SUPABASE_URL
-        
-        if is_local_supabase:
-            print(f"\n🐳 Local Supabase (Docker) detected!")
-            print(f"   URL: {SUPABASE_URL}")
-        else:
-            print(f"\n☁️  Cloud Supabase detected!")
-            print(f"   URL: {SUPABASE_URL}")
-        
-        print(f"✅ Supabase credentials found!")
-        supabase_config = SupabaseConfig(url=SUPABASE_URL, key=SUPABASE_KEY)
-        supabase_connection = SupabaseConnectionSingleton(supabase_config)
-        use_supabase = True
-        print(f"✅ Supabase connection initialized successfully")
-        print(f"🔥 USE_SUPABASE FLAG = TRUE")
+    # Detect if using local Supabase (Docker) or cloud
+    is_local_supabase = "localhost" in SUPABASE_URL or "127.0.0.1" in SUPABASE_URL
+    
+    if is_local_supabase:
+        print(f"\n🐳 Local Supabase (Docker) detected!")
+        print(f"   URL: {SUPABASE_URL}")
     else:
-        # Use placeholder for local-only mode (no Supabase at all)
-        print(f"\n⚠️  Running in LOCAL-ONLY mode (no Supabase)")
-        print(f"   Reason: ", end="")
-        if not SUPABASE_URL:
-            print("SUPABASE_URL not set")
-        elif not SUPABASE_KEY:
-            print("SUPABASE_KEY not set")
-        print(f"   Users will be created with local UUIDs and bcrypt passwords")
-        print(f"🔵 USE_SUPABASE FLAG = FALSE")
-        supabase_config = SupabaseConfig(url="https://placeholder.supabase.co", key="placeholder")
-        supabase_connection = SupabaseConnectionSingleton(supabase_config)
+        print(f"\n☁️  Cloud Supabase detected!")
+        print(f"   URL: {SUPABASE_URL}")
     
-    # Initialize userHelper with Supabase connection and flag
-    user_helper = userHelper(supabase_connection, use_supabase=use_supabase)
-    print(f"\n✅ userHelper initialized with use_supabase={use_supabase}")
+    print(f"✅ Supabase credentials found!")
+    supabase_config = SupabaseConfig(url=SUPABASE_URL, key=SUPABASE_KEY)
+    supabase_connection = SupabaseConnectionSingleton(supabase_config)
+    print(f"✅ Supabase connection initialized successfully")
+    print(f"🔥 AUTHENTICATION MODE: SUPABASE ONLY")
+    
+    # Initialize userHelper with Supabase connection (no local auth)
+    user_helper = userHelper(supabase_connection)
+    print(f"✅ userHelper initialized (Supabase-only authentication)")
     print("="*60 + "\n")
     
 except Exception as e:
-    print(f"⚠ Warning: Failed to initialize Supabase connection: {e}")
-    print("  The app will work but Supabase authentication will fail.")
-    # Create instance anyway with placeholder - will fail on auth operations
-    try:
-        supabase_config = SupabaseConfig(url="https://placeholder.supabase.co", key="placeholder")
-        supabase_connection = SupabaseConnectionSingleton(supabase_config)
-        user_helper = userHelper(supabase_connection, use_supabase=False)
-    except:
-        print("✗ Critical: Could not initialize userHelper at all")
-        sys.exit(1)
+    print(f"❌ CRITICAL ERROR: Failed to initialize Supabase connection: {e}")
+    print("  The app CANNOT start without Supabase.")
+    import traceback
+    traceback.print_exc()
+    print("\n" + "="*60)
+    print("Please configure Supabase in .env file:")
+    print("SUPABASE_URL=http://localhost:9999")
+    print("SUPABASE_KEY=your-anon-key")
+    print("="*60 + "\n")
+    sys.exit(1)
 
 @app.route('/login', methods=['POST'])
 def login():

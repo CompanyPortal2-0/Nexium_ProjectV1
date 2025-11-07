@@ -8,19 +8,17 @@ from supaBase.supaBase import SupabaseConnectionSingleton
 
 
 class userHelper:
-    """User helper class with Supabase authentication integration"""
+    """User helper class with Supabase-only authentication"""
     
-    def __init__(self, supabase_connection: SupabaseConnectionSingleton, use_supabase: bool = False):
+    def __init__(self, supabase_connection: SupabaseConnectionSingleton):
         """
         Initialize userHelper with Supabase connection
         
         Args:
             supabase_connection: SupabaseConnectionSingleton instance for authentication
-            use_supabase: Whether to actually use Supabase or just local storage
         """
         self.supabase = supabase_connection
         self.json_store = JsonUserStore("./userJson.json")
-        self.use_supabase = use_supabase  # Flag to control Supabase usage
     
     def getUserByEmail(self, email: str) -> Optional[User]:
         """
@@ -73,29 +71,26 @@ class userHelper:
         # Check if email already exists in local storage
         existing_user = self.getUserByEmail(Email)
         if existing_user is not None:
+            print(f"⚠️ [LOCAL] User with email {Email} already exists")
             return None
         
-        # Create user in Supabase authentication (only if enabled)
-        supabase_user_id = None
-        if self.use_supabase:
-            print(f"🔵 [SUPABASE] Attempting to create user: {Email}")
-            try:
-                supabase_user_id = self.supabase.sign_up_user(Email, password)
-                if supabase_user_id is None:
-                    # Supabase signup failed (email might already exist in Supabase)
-                    print(f"⚠️ [SUPABASE] Signup failed for {Email} - returned None")
-                    return None
-                else:
-                    print(f"✅ [SUPABASE] User created successfully with ID: {supabase_user_id}")
-            except Exception as e:
-                print(f"❌ [SUPABASE ERROR] Signup failed: {type(e).__name__}: {e}")
-                print(f"   Falling back to local UUID generation")
-                # Fallback: generate local UUID if Supabase fails
-                supabase_user_id = str(uuid.uuid4())
-        else:
-            # Local-only mode: generate UUID directly without trying Supabase
-            print(f"🔵 [LOCAL] Creating user with local UUID: {Email}")
-            supabase_user_id = str(uuid.uuid4())
+        # Create user in Supabase authentication ONLY
+        print(f"🔵 [SUPABASE] Attempting to create user: {Email}")
+        
+        try:
+            supabase_user_id = self.supabase.sign_up_user(Email, password)
+            
+            if supabase_user_id is None:
+                print(f"❌ [SUPABASE] Signup failed - returned None (user may already exist in Supabase)")
+                return None
+            
+            print(f"✅ [SUPABASE] User created successfully with ID: {supabase_user_id}")
+            
+        except Exception as e:
+            print(f"❌ [SUPABASE ERROR] Signup failed: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
         
         # Create user in local JSON storage with Supabase ID
         newUser = User(
@@ -108,15 +103,15 @@ class userHelper:
             EmployeesList=[]
         )
         self.json_store.add_user(newUser)
+        print(f"✅ [LOCAL] User saved to JSON with Supabase ID: {supabase_user_id}")
         
-        # Store password locally as backup (using bcrypt)
-        passwordHelper.assignPasswordToUser(newUser.ID, password)
+        # DO NOT store password locally - Supabase handles all authentication
         
         return newUser
     
     def authenticateUser(self, email: str, password: str) -> Optional[User]:
         """
-        Authenticate user using Supabase
+        Authenticate user using ONLY Supabase (no local fallback)
         
         Args:
             email: User's email address
@@ -125,45 +120,42 @@ class userHelper:
         Returns:
             User object if authentication successful, None otherwise
         """
-        # Try Supabase authentication first (only if enabled)
-        if self.use_supabase:
-            print(f"🔵 [SUPABASE] Attempting to authenticate user: {email}")
-            try:
-                supabase_user_id = self.supabase.sign_in_user(email, password)
-                if supabase_user_id is not None:
-                    print(f"✅ [SUPABASE] Authentication successful, ID: {supabase_user_id}")
-                    # Get user from local storage
-                    user = self.getUserBySupabaseId(supabase_user_id)
-                    if user is None:
-                        print(f"⚠️ [SUPABASE] User {supabase_user_id} not found in local storage by ID")
-                        # Fallback: try to find by email
-                        user = self.getUserByEmail(email)
-                        if user:
-                            print(f"✅ [LOCAL] Found user by email instead: {user.ID}")
-                        else:
-                            print(f"❌ [LOCAL] User {email} not found in local storage at all")
-                    return user
+        print(f"🔵 [SUPABASE] Attempting to authenticate user: {email}")
+        
+        try:
+            # Authenticate with Supabase
+            supabase_user_id = self.supabase.sign_in_user(email, password)
+            
+            if supabase_user_id is None:
+                print(f"❌ [SUPABASE] Authentication failed - invalid credentials")
+                return None
+            
+            print(f"✅ [SUPABASE] Authentication successful, ID: {supabase_user_id}")
+            
+            # Get user from local storage by Supabase ID
+            user = self.getUserBySupabaseId(supabase_user_id)
+            
+            if user is None:
+                print(f"⚠️ [SUPABASE] User {supabase_user_id} not found in local storage by ID")
+                # Try to find by email as fallback
+                user = self.getUserByEmail(email)
+                if user:
+                    print(f"✅ [LOCAL] Found user by email: {user.ID}")
+                    # Update user's ID to match Supabase ID
+                    user.ID = supabase_user_id
+                    self.json_store.update_user(user)
+                    print(f"✅ [LOCAL] Updated user ID to match Supabase ID")
                 else:
-                    print(f"❌ [SUPABASE] Authentication failed - returned None")
-            except Exception as e:
-                print(f"❌ [SUPABASE ERROR] Authentication failed: {type(e).__name__}: {e}")
-                print(f"   Falling back to local authentication")
-        else:
-            print(f"🔵 [LOCAL] Using local authentication for: {email}")
-        
-        # Local authentication (or fallback if Supabase fails)
-        user = self.getUserByEmail(email)
-        if user is not None:
-            print(f"🔵 [LOCAL] Found user in JSON, checking password...")
-            if passwordHelper.isPasswordTrueForUser(user.ID, password):
-                print(f"✅ [LOCAL] Password verified successfully")
-                return user
-            else:
-                print(f"❌ [LOCAL] Password verification failed")
-        else:
-            print(f"❌ [LOCAL] User {email} not found in local storage")
-        
-        return None
+                    print(f"❌ [LOCAL] User {email} not found in local storage")
+                    return None
+            
+            return user
+            
+        except Exception as e:
+            print(f"❌ [SUPABASE ERROR] Authentication failed: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     def getAllUsers(self, type=None):
         """
