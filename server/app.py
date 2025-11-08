@@ -33,14 +33,23 @@ def login():
     email = data.get('email')
     password = data.get('password')
     print(email,password)
+    
     if (email is None) or (password is None):
         return jsonify({"Text": "missing content"}), 401
-    user = userHelper.getUserByEmail(email)
-    if passwordHelper.isPasswordTrueForUser(user.getId(), password) and auth_helper.login(email,password):
-        access_token = create_access_token(identity=email)
-        return jsonify({"accessToken": f"{access_token}"}), 200
-    else:
-        return jsonify({"Text": "cordinates are wring"}), 400
+    
+    try:
+        user = userHelper.getUserByEmail(email)
+        if user is None:
+            return jsonify({"Text": "user not found"}), 404
+        
+        if passwordHelper.isPasswordTrueForUser(user.getId(), password) and auth_helper.login(email,password):
+            access_token = create_access_token(identity=email)
+            return jsonify({"accessToken": f"{access_token}"}), 200
+        else:
+            return jsonify({"Text": "coordinates are wrong"}), 400
+    except Exception as e:
+        print(f"Login error: {str(e)}")
+        return jsonify({"Text": "Login failed, please try again later"}), 503
 
 
 
@@ -54,10 +63,29 @@ def signUp():
     Password = data.get('Password')
     DateOfBirth = data.get('DateOfBirth')
     address = data.get('Address')
-    if (userHelper.CreateUser(email,firstName,lastName,DateOfBirth,address,Password) is not None ) and (auth_helper.CreateUser(email,Password)) :
-        return jsonify({"RedirectionLink": "testStore.testStore", "accessToken": "testtttt"}), 200
-    else :
-        return jsonify({"Text": "mail used"}), 401
+    
+    # Validate required fields
+    if not all([email, firstName, lastName, Password, DateOfBirth, address]):
+        return jsonify({"Text": "Missing required fields"}), 400
+    
+    try:
+        # First, create user in Supabase Auth
+        if not auth_helper.CreateUser(email, Password):
+            return jsonify({"Text": "Failed to create authentication account"}), 500
+        
+        # Then, create user locally
+        if userHelper.CreateUser(email, firstName, lastName, DateOfBirth, address, Password):
+            access_token = create_access_token(identity=email)
+            return jsonify({
+                "RedirectionLink": "testStore.testStore", 
+                "accessToken": access_token
+            }), 200
+        else:
+            return jsonify({"Text": "Failed to create user profile"}), 500
+            
+    except Exception as e:
+        print(f"Signup error: {str(e)}")
+        return jsonify({"Text": "Registration failed, please try again later"}), 503
 
 
 @app.route('/hr/getallemp', methods=['GET'])

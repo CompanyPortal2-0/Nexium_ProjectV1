@@ -7,9 +7,18 @@ class authHelper :
         self.authenticater=database
     
     def CreateUser(self,Email,password) -> bool:
-        
-        return self.authenticater.createUser(Email,password)
+        try:
+            result = self.authenticater.createUser(Email,password)
+            return result is not None
+        except Exception as e:
+            print(f"Auth creation error: {e}")
+            return False
         
     
     def login (self,Email,password) -> bool:
-         return self.authenticater.login(Email,password)
+        try:
+            result = self.authenticater.login(Email,password)
+            return result is not None
+        except Exception as e:
+            print(f"Auth login error: {e}")
+            return False

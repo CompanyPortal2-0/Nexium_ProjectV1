@@ -7,26 +7,27 @@ from Helperes.passwordHelper import passwordHelper
 
 class userHelper :
 
-    def __init__(self,database : dataBaseAuth):
-        self.authenticater=database
     @staticmethod
     def getUserByEmail(email: str) -> User:
         AllUseres = JsonUserStore("./userJson.json").get_all_users()
         for user in AllUseres:
             if user.Email == email:
                 return user
-        return  "ejjaw"
+        return None
 
     @staticmethod
     def CreateUser(Email, FirstName, LastName,  DateOfBirth,  Address , password) -> bool:
-        Jstore = JsonUserStore("./userJson.json")
-        ID = str(uuid.uuid4())
-        # Pass an empty list for EmployeesList
-        newUser = User(Email, FirstName, LastName, ID, DateOfBirth, Address, EmployeesList=[])
-        Jstore.add_user(newUser)
-        passwordHelper.assignPasswordToUser(newUser.ID, password)
-        
-        return True
+        try:
+            Jstore = JsonUserStore("./userJson.json")
+            ID = str(uuid.uuid4())
+            # Pass an empty list for EmployeesList
+            newUser = User(Email, FirstName, LastName, ID, DateOfBirth, Address, EmployeesList=[])
+            Jstore.add_user(newUser)
+            passwordHelper.assignPasswordToUser(newUser.ID, password)
+            return True
+        except Exception as e:
+            print(f"Create user error: {e}")
+            return False
 
     
 
