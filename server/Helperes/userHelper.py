@@ -1,5 +1,5 @@
 import uuid
-
+from supaBase.supaBase import dataBaseAuth
 from modeles.user import User
 from testStore.userJson import JsonUserStore
 from Helperes.passwordHelper import passwordHelper
@@ -7,7 +7,8 @@ from Helperes.passwordHelper import passwordHelper
 
 class userHelper :
 
-
+    def __init__(self,database : dataBaseAuth):
+        self.authenticater=database
     @staticmethod
     def getUserByEmail(email: str) -> User:
         AllUseres = JsonUserStore("./userJson.json").get_all_users()
@@ -24,8 +25,10 @@ class userHelper :
         newUser = User(Email, FirstName, LastName, ID, DateOfBirth, Address, EmployeesList=[])
         Jstore.add_user(newUser)
         passwordHelper.assignPasswordToUser(newUser.ID, password)
+        
         return True
 
+    
 
     @staticmethod
     def getAllUsers(type) :

@@ -1,16 +1,31 @@
 from flask import Flask, jsonify, render_template, session, send_from_directory, request, redirect
-
-
+from dotenv import load_dotenv
+import os
 from Helperes.userHelper import userHelper
 from Helperes.passwordHelper import passwordHelper
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from modeles.role import ROLE
 from testStore.userJson import JsonUserStore
+from supaBase.supaBase import dataBaseAuth
+from werkzeug.serving import WSGIRequestHandler
+from Helperes.authHelper import authHelper
 
+
+
+load_dotenv()
 app = Flask(__name__)
 app.secret_key = '12354681353415'
 app.config["JWT_SECRET_KEY"] = "1358415380351515"  # Change this in production
 jwt = JWTManager(app)
+authenter = dataBaseAuth(os.getenv("SUPABASE_URL"),os.getenv("SUPABASE_KEY"))
+auth_helper = authHelper(authenter)
+
+class CustomRequestHandler(WSGIRequestHandler):
+    def setup(self):
+        self.request.settimeout(10)  # Set a 0.5-second read timeout
+        super().setup()
+
+
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -21,9 +36,8 @@ def login():
     if (email is None) or (password is None):
         return jsonify({"Text": "missing content"}), 401
     user = userHelper.getUserByEmail(email)
-
-    access_token = create_access_token(identity=email)
-    if passwordHelper.isPasswordTrueForUser(user.getId(), password):
+    if passwordHelper.isPasswordTrueForUser(user.getId(), password) and auth_helper.login(email,password):
+        access_token = create_access_token(identity=email)
         return jsonify({"accessToken": f"{access_token}"}), 200
     else:
         return jsonify({"Text": "cordinates are wring"}), 400
@@ -40,7 +54,7 @@ def signUp():
     Password = data.get('Password')
     DateOfBirth = data.get('DateOfBirth')
     address = data.get('Address')
-    if userHelper.CreateUser(email,firstName,lastName,DateOfBirth,address,Password) is not None :
+    if (userHelper.CreateUser(email,firstName,lastName,DateOfBirth,address,Password) is not None ) and (auth_helper.CreateUser(email,Password)) :
         return jsonify({"RedirectionLink": "testStore.testStore", "accessToken": "testtttt"}), 200
     else :
         return jsonify({"Text": "mail used"}), 401
@@ -90,4 +104,4 @@ def assemployee():
     JsonUserStore("./userJson.json").add_user(manager)
     return jsonify({"Text": "employee assigned"}), 200
 if __name__ == '__main__':
-    app.run(host='0.0.0.0',port=6021, debug=False)
+    app.run(host='0.0.0.0',port=6021, debug=False, request_handler=CustomRequestHandler)
