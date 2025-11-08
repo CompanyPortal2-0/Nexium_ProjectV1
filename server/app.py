@@ -2,6 +2,23 @@ from flask import Flask, jsonify, render_template, session, send_from_directory,
 import os
 import sys
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Loaded .env file")
+except ImportError:
+    print("⚠️  python-dotenv not installed, loading .env manually")
+    # Manual .env loading if dotenv not installed
+    if os.path.exists('.env'):
+        with open('.env', 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+        print("✅ Manually loaded .env file")
+
 from Helperes.userHelper import userHelper
 from Helperes.passwordHelper import passwordHelper
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
@@ -20,8 +37,8 @@ try:
     print("🔍 SUPABASE CONFIGURATION CHECK")
     print("="*60)
     
-    SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:8000")
-    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "your-super-secret-jwt-token-with-at-least-32-characters-long")
+    SUPABASE_URL = os.getenv("SUPABASE_URL", None)
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY", None)
     
     print(f"📋 SUPABASE_URL: {SUPABASE_URL if SUPABASE_URL else '❌ NOT SET'}")
     print(f"📋 SUPABASE_KEY: {SUPABASE_KEY[:20] + '...' if SUPABASE_KEY else '❌ NOT SET'}")
