@@ -94,3 +94,8 @@ class JsonUserStore:
     def _write(self, data: dict):
         with open(self.filepath, 'w') as f:
             json.dump(data, f, indent=2)
+
+    def codeToMangaer(self,manager : User,code):
+        data = self._read()
+        data[manager.Email] = code
+        self._write(data)

@@ -46,3 +46,17 @@ class userHelper :
     def removeEmployee(user, emp):
         if emp in user.EmployeesList:
             user.EmployeesList.remove(emp)
+
+    @staticmethod
+    def assignCodeToManager(manager : User,code):
+        codes = JsonUserStore("./codes.json")
+        codes.codeToMangaer(manager,code)
+    @staticmethod
+    def getManagerFromCode(code):
+        data = JsonUserStore("./codes.json")
+        for user_id, stored_code in data.items():
+            if stored_code == code:
+                return user_id
+        return None
+    
+    @static

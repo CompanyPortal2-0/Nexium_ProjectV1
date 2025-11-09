@@ -9,6 +9,8 @@ from supaBase.supaBase import dataBaseAuth
 from werkzeug.serving import WSGIRequestHandler
 from Helperes.authHelper import authHelper
 import os
+import secrets
+import string
 
 
 load_dotenv()
@@ -23,6 +25,26 @@ class CustomRequestHandler(WSGIRequestHandler):
     def setup(self):
         self.request.settimeout(10)  # Set a 0.5-second read timeout
         super().setup()
+
+@app.route('/getCodeForManager',methods=['GET'])
+@jwt_required()
+def getCode():
+    current_employer = userHelper.getUserByEmail(get_jwt_identity())
+    if current_employer is None or current_employer.getRole() != ROLE.HR:
+        return jsonify({"Text": "not authorized"}), 401
+    data = request.get_json()
+    managerMail=data.get('managermail')
+    user = userHelper.getUserByEmail(managerMail)
+    if user is None:
+        return jsonify({"Text": "user not found"}), 404
+    code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+    userHelper.assignCodeToManager(user,code)
+
+    return jsonify({"code": code})
+
+
+    
+
 
 
 
@@ -62,6 +84,7 @@ def signUp():
     Password = data.get('Password')
     DateOfBirth = data.get('DateOfBirth')
     address = data.get('Address')
+    ManagerCode = data.get('managercode')
     
     # Validate required fields
     if not all([email, firstName, lastName, Password, DateOfBirth, address]):
@@ -75,6 +98,9 @@ def signUp():
         # Then, create user locally
         if userHelper.CreateUser(email, firstName, lastName, DateOfBirth, address, Password):
             access_token = create_access_token(identity=email)
+            userHelper.addEmployee(userHelper.getUserByEmail())
+            managerMail = userHelper.getManagerFromCode(ManagerCode)
+            userHelper.
             return jsonify({
                 "RedirectionLink": "testStore.testStore", 
                 "accessToken": access_token
@@ -110,26 +136,6 @@ def getAllAng():
     employeresList_dicts = [user.to_dict() for user in employeresList]
     return jsonify(employeresList_dicts), 200
 
-@app.route('/hr/assemployee', methods=['POST'])
-@jwt_required()
-def assemployee():
-    current_employer = userHelper.getUserByEmail(get_jwt_identity())
-    if current_employer is None or current_employer.getRole() != ROLE.HR:
-        return jsonify({"Text": "not authorized"}), 401
-    data = request.get_json()
-    empId = data.get('empId')
-    managerId = data.get('managerId')
-    emp = userHelper.getUserByEmail(empId)
-    manager = userHelper.getUserByEmail(managerId)
-    if emp is None or manager is None:
-        return jsonify({"Text": "user not found"}), 404
-    if emp.getRole() != ROLE.EMPLOYER or manager.getRole() != ROLE.MANAGER:
-        return jsonify({"Text": "invalid roles"}), 400
-    userHelper.addEmployee(manager, empId)
-
-
-    JsonUserStore("./userJson.json").add_user(manager)
-    return jsonify({"Text": "employee assigned"}), 200
 
 
 if __name__ == '__main__':
