@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from modeles.department import Department
 from modeles.role import ROLE
+from modeles.department import Department
 
 
 class User:
@@ -75,32 +76,30 @@ class User:
     def __str__(self):
         return "User(ID=%r, FirstName=%r, LastName=%r)" % (self.ID, self.FirstName, self.LastName)
     def to_dict(self):
+        """Convert User object to dictionary for JSON serialization"""
         return {
-            'ID': self.ID,
-            'FirstName': self.FirstName,
-            'LastName': self.LastName,
-            'DateOfBirth': self.DateOfBirth,
-            'Email': self.Email,
-            'Address': self.Address,
-            'EmployeesList': self.EmployeesList,
-            'Department': self.Department.name if self.Department else None,
-            'Role': self.Role.name if self.Role else None
+            "Email": self.Email,
+            "FirstName": self.FirstName,
+            "LastName": self.LastName,
+            "ID": self.ID,
+            "DateOfBirth": self.DateOfBirth,
+            "Address": self.Address,
+            "EmployeesList": [emp.to_dict() if hasattr(emp, 'to_dict') else emp for emp in self.EmployeesList],  # ✅ Serialize nested users
+            "Role": self.Role.value if hasattr(self.Role, 'value') else self.Role,
+            "Department": self.Department.value if hasattr(self.Department, 'value') else self.Department
         }
 
     @classmethod
     def from_dict(cls, data):
-        from modeles.department import Department
-        from modeles.role import ROLE
-        department = Department[data['Department']] if data.get('Department') else None
-        role = ROLE[data['Role']] if data.get('Role') else ROLE.GUEST
+        """Create User object from dictionary"""
         return cls(
-            ID=data.get('ID'),
+            Email=data.get('Email'),
             FirstName=data.get('FirstName'),
             LastName=data.get('LastName'),
+            ID=data.get('ID'),
             DateOfBirth=data.get('DateOfBirth'),
-            Email=data.get('Email'),
             Address=data.get('Address'),
-            EmployeesList=data.get('EmployeesList'),
-            Department=department,
-            Role=role
+            EmployeesList=data.get('EmployeesList', []),
+            Role=data.get('Role', ROLE.EMPLOYER),
+            Department=data.get('Department', DEPARTMENT.IT)
         )

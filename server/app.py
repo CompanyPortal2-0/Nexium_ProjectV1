@@ -78,7 +78,7 @@ def signUp():
     data = request.get_json()
 
     email = data.get('email')
-    firstName=data.get('FirstName')
+    firstName = data.get('FirstName')
     lastName = data.get('LastName')
     Password = data.get('Password')
     DateOfBirth = data.get('DateOfBirth')
@@ -93,28 +93,32 @@ def signUp():
         # First, create user in Supabase Auth
         if not auth_helper.CreateUser(email, Password):
             return jsonify({"Text": "Failed to create authentication account"}), 500
-        _,Newuser= userHelper.CreateUser(email, firstName, lastName, DateOfBirth, address, Password)
+        
         # Then, create user locally
-        if Newuser :
+        success, new_user = userHelper.CreateUser(email, firstName, lastName, DateOfBirth, address, Password)
+        
+        if success and new_user:
             access_token = create_access_token(identity=email)
             
-            managerMail = userHelper.getManagerFromCode(ManagerCode)
-            cond = userHelper.addemployerTomanager(userHelper.getUserByEmail(managerMail),Newuser)
-            if (cond):
-                return jsonify({
-                "RedirectionLink": "testStore.testStore", 
-                "accessToken": access_token
+            # If manager code provided, link to manager
+            if ManagerCode:
+                managerMail = userHelper.getManagerFromCode(ManagerCode)
+                if managerMail:
+                    manager = userHelper.getUserByEmail(managerMail)
+                    if manager:
+                        userHelper.addemployerTomanager(manager, new_user)
+            
+            return jsonify({
+                "accessToken": access_token,
+                "message": "User created successfully"
             }), 200
-            else : 
-                return jsonify({"Text : manager Not Found"}) , 404
-            
-
-            
         else:
             return jsonify({"Text": "Failed to create user profile"}), 500
             
     except Exception as e:
         print(f"Signup error: {str(e)}")
+        import traceback
+        traceback.print_exc()  # ✅ Print full stack trace for debugging
         return jsonify({"Text": "Registration failed, please try again later"}), 503
 
 

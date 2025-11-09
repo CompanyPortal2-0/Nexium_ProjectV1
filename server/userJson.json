@@ -17,7 +17,11 @@
     "DateOfBirth": "1990-01-01",
     "Email": "test@rg12zer3mple.com",
     "Address": "123 Test Lane, Testville, TX 75001",
-    "EmployeesList": [],
+    "EmployeesList": [
+      "58cac4db-9ba7-4337-a972-ded20a7a43d6",
+      "5d3b311f-a366-46e8-a969-f1ef920555f7",
+      "test@rgsssdfddle.com"
+    ],
     "Department": null,
     "Role": "MANAGER"
   },
@@ -82,6 +86,50 @@
     "LastName": "User",
     "DateOfBirth": "1990-01-01",
     "Email": "test@rgssszwsdfdfddzdzzd4ze4eple.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "1ea6a028-7fae-4edf-9e96-084c6ddaa59b": {
+    "ID": "1ea6a028-7fae-4edf-9e96-084c6ddaa59b",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test@rgssszwsdfdfddzdfdzzd4ze4eple.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "58cac4db-9ba7-4337-a972-ded20a7a43d6": {
+    "ID": "58cac4db-9ba7-4337-a972-ded20a7a43d6",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test@rgssszwsdfdfddzcsdfdzzd4ze4eple.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "5d3b311f-a366-46e8-a969-f1ef920555f7": {
+    "ID": "5d3b311f-a366-46e8-a969-f1ef920555f7",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test@rgssszwsdfdfddle.com",
+    "Address": "123 Test Lane, Testville, TX 75001",
+    "EmployeesList": [],
+    "Department": null,
+    "Role": "GUEST"
+  },
+  "94a93198-9046-4c51-b38b-e228da7095af": {
+    "ID": "94a93198-9046-4c51-b38b-e228da7095af",
+    "FirstName": "Test",
+    "LastName": "User",
+    "DateOfBirth": "1990-01-01",
+    "Email": "test@rgsssdfddle.com",
     "Address": "123 Test Lane, Testville, TX 75001",
     "EmployeesList": [],
     "Department": null,
