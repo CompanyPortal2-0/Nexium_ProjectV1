@@ -99,3 +99,9 @@ class JsonUserStore:
         data = self._read()
         data[manager.Email] = code
         self._write(data)
+
+    def get_all_code(self) -> List:
+        
+        
+        data = self._read()
+        return [{email: code} for email, code in data.items() if not isinstance(code, dict)]

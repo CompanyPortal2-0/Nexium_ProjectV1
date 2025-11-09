@@ -3,6 +3,7 @@ from supaBase.supaBase import dataBaseAuth
 from modeles.user import User
 from testStore.userJson import JsonUserStore
 from Helperes.passwordHelper import passwordHelper
+from modeles.role import ROLE
 
 
 class userHelper :
@@ -24,7 +25,7 @@ class userHelper :
             newUser = User(Email, FirstName, LastName, ID, DateOfBirth, Address, EmployeesList=[])
             Jstore.add_user(newUser)
             passwordHelper.assignPasswordToUser(newUser.ID, password)
-            return True
+            return True , newUser
         except Exception as e:
             print(f"Create user error: {e}")
             return False
@@ -38,10 +39,7 @@ class userHelper :
             users = [user for user in users if user.Role == type]
         return users
 
-    @staticmethod
-    def addEmployee(usr, emp):
-        if emp not in usr.EmployeesList:
-            usr.EmployeesList.append(emp)
+    
     @staticmethod
     def removeEmployee(user, emp):
         if emp in user.EmployeesList:
@@ -53,10 +51,18 @@ class userHelper :
         codes.codeToMangaer(manager,code)
     @staticmethod
     def getManagerFromCode(code):
-        data = JsonUserStore("./codes.json")
-        for user_id, stored_code in data.items():
-            if stored_code == code:
-                return user_id
+        data = JsonUserStore("./codes.json").get_all_code()
+        for item in data:
+            for user_id, stored_code in item.items():
+                if stored_code == code:
+                    return user_id
         return None
     
-    @static
+    @staticmethod
+    def addemployerTomanager(manager : User,user : User):
+        manager.EmployeesList.append(user)
+        try :
+            JsonUserStore("./userJson").add_user(manager)
+            return True
+        except Exception as e:
+            return False

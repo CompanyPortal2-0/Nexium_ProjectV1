@@ -12,7 +12,6 @@ import os
 import secrets
 import string
 
-
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = '12354681353415'
@@ -94,17 +93,23 @@ def signUp():
         # First, create user in Supabase Auth
         if not auth_helper.CreateUser(email, Password):
             return jsonify({"Text": "Failed to create authentication account"}), 500
-        
+        _,Newuser= userHelper.CreateUser(email, firstName, lastName, DateOfBirth, address, Password)
         # Then, create user locally
-        if userHelper.CreateUser(email, firstName, lastName, DateOfBirth, address, Password):
+        if Newuser :
             access_token = create_access_token(identity=email)
-            userHelper.addEmployee(userHelper.getUserByEmail())
+            
             managerMail = userHelper.getManagerFromCode(ManagerCode)
-            userHelper.
-            return jsonify({
+            cond = userHelper.addemployerTomanager(userHelper.getUserByEmail(managerMail),Newuser)
+            if (cond):
+                return jsonify({
                 "RedirectionLink": "testStore.testStore", 
                 "accessToken": access_token
             }), 200
+            else : 
+                return jsonify({"Text : manager Not Found"}) , 404
+            
+
+            
         else:
             return jsonify({"Text": "Failed to create user profile"}), 500
             
