@@ -3,101 +3,252 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Peer Meeting App</title>
+    <title>Video Meeting</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        * {
             margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-            overflow-x: hidden;
-        }
-        .container {
-            width: 100%;
             padding: 0;
             box-sizing: border-box;
         }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow-x: hidden;
+        }
+
         .header {
-            background-color: #2c3e50;
+            background-color: rgba(44, 62, 80, 0.95);
             color: white;
-            padding: 10px 20px;
+            padding: 15px 30px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
-        .room-info {
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .meeting-info {
             display: flex;
             align-items: center;
+            gap: 20px;
         }
-        input {
-            padding: 8px;
-            margin-right: 10px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
-        .participants {
-            position: absolute;
-            right: 20px;
-            background-color: rgba(0,0,0,0.5);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
+
+        .meeting-id {
+            background-color: rgba(255,255,255,0.1);
+            padding: 8px 15px;
+            border-radius: 20px;
             font-size: 14px;
         }
+
+        .participants-count {
+            background-color: #3498db;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
         .video-container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 10px;
-            padding: 10px;
-            max-width: 100%;
-            box-sizing: border-box;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            max-height: calc(100vh - 140px);
+            overflow-y: auto;
         }
+
         .video-item {
             position: relative;
-            width: 100%;
-            aspect-ratio: 4/3;
-            background-color: #222;
-            border-radius: 8px;
+            background-color: #1a1a1a;
+            border-radius: 12px;
             overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            aspect-ratio: 16/9;
         }
-        .local-video-container {
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            width: 200px;
-            height: 150px;
-            z-index: 100;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        }
-        video {
+
+        .video-item video {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
+
         .peer-name {
             position: absolute;
             bottom: 10px;
             left: 10px;
-            background-color: rgba(0,0,0,0.5);
+            background-color: rgba(0,0,0,0.7);
             color: white;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
         }
+
+        .local-video-container {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 240px;
+            height: 180px;
+            z-index: 1000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+            border: 3px solid #3498db;
+        }
+
         .controls {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background-color: #2c3e50;
+            background-color: rgba(44, 62, 80, 0.95);
             padding: 15px;
             display: flex;
             justify-content: center;
             gap: 15px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
         }
+
         .control-button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .btn-video {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-video.off {
+            background-color: #e74c3c;
+        }
+
+        .btn-audio {
+            background-color: #2ecc71;
+            color: white;
+        }
+
+        .btn-audio.off {
+            background-color: #e74c3c;
+        }
+
+        .btn-leave {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .status-message {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background-color: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: none;
+            z-index: 1001;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .status-message.show {
+            display: block;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            z-index: 2000;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📹 Video Meeting</h1>
+        <div class="meeting-info">
+            <div class="meeting-id" id="meetingId">Meeting: ...</div>
+            <div class="participants-count" id="participantCount">👥 0</div>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Connecting to meeting...</p>
+    </div>
+
+    <div class="status-message" id="statusMessage"></div>
+
+    <div class="local-video-container">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <div class="peer-name">You</div>
+    </div>
+
+    <div class="video-container" id="videoGrid"></div>
+
+    <div class="controls">
+        <button class="control-button btn-video" id="toggleVideoButton">
+            📹 Video On
+        </button>
+        <button class="control-button btn-audio" id="toggleAudioButton">
+            🎤 Audio On
+        </button>
+        <button class="control-button btn-leave" id="hangupButton">
+            📞 Leave Meeting
+        </button>
+    </div>
+
+    <script src="/meetfiles/webrtc_new.js"></script>
+</body>
+</html>
             padding: 10px;
             border-radius: 50%;
             width: 40px;
@@ -185,6 +336,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
-    <script src="./webrtc.js"></script>
+    <script src="./webrtc_new.js"></script>
 </body>
 </html>
