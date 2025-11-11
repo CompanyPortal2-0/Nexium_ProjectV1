@@ -6,7 +6,9 @@
     "InvitationLink": "0A07UJN2",
     "LogPath": "/log.log",
     "Description": "Discuss current sprint progress and blockers",
-    "InvitedEmployeesList": [],
+    "InvitedEmployeesList": [
+      "test@rgssszwsdzdd4zeeple.com"
+    ],
     "Creator": "test@rg12zer3mple.com"
   }
 }
