@@ -193,7 +193,43 @@ def createMeeting():
         traceback.print_exc()
         return jsonify({"Text": "Failed to create meeting"}), 503
 
-
+@app.route('/joinMeeting', methods=['POST'])
+@jwt_required()
+def joinMeeting():
+    """
+    Join a meeting by adding the current user to the invited list
+    """
+    # Get current user from JWT token
+    current_user = userHelper.getUserByEmail(get_jwt_identity())
+    if current_user is None:
+        return jsonify({"Text": "User not found"}), 404
+    
+    # Get meeting ID from request
+    data = request.get_json()
+    meeting_id = data.get('meetingID')
+    
+    # Validate required fields
+    if not meeting_id:
+        return jsonify({"Text": "Meeting ID is required"}), 400
+    
+    try:
+        # Add user to meeting using meetHelper
+        success = meetHelper.joinMeet(current_user.Email, meeting_id)
+        
+        if success:
+            return jsonify({
+                "Text": "Successfully joined meeting",
+                "meetingID": meeting_id,
+                "userEmail": current_user.Email
+            }), 200
+        else:
+            return jsonify({"Text": "Failed to join meeting"}), 500
+            
+    except Exception as e:
+        print(f"Join meeting error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"Text": "Failed to join meeting"}), 503
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port=6021, debug=False, request_handler=CustomRequestHandler)
