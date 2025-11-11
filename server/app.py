@@ -8,6 +8,7 @@ from testStore.userJson import JsonUserStore
 from supaBase.supaBase import dataBaseAuth
 from werkzeug.serving import WSGIRequestHandler
 from Helperes.authHelper import authHelper
+from Helperes.meetHelper import meetHelper
 import os
 import secrets
 import string
@@ -25,7 +26,7 @@ class CustomRequestHandler(WSGIRequestHandler):
         self.request.settimeout(10)  # Set a 0.5-second read timeout
         super().setup()
 
-@app.route('/getCodeForManager',methods=['GET'])
+@app.route('/hr/getCodeForManager',methods=['GET'])
 @jwt_required()
 def getCode():
     current_employer = userHelper.getUserByEmail(get_jwt_identity())
@@ -144,6 +145,53 @@ def getAllAng():
     # Convert each User object to a dictionary for JSON serialization
     employeresList_dicts = [user.to_dict() for user in employeresList]
     return jsonify(employeresList_dicts), 200
+
+@app.route('/manager/createMeeting', methods=['POST'])
+@jwt_required()
+def createMeeting():
+    """
+    Create a new meeting (Manager only)
+    """
+    # Check if user is a manager
+    current_user = userHelper.getUserByEmail(get_jwt_identity())
+    if current_user is None or current_user.getRole() != ROLE.MANAGER:
+        return jsonify({"Text": "not authorized"}), 401
+    
+    # Get meeting data from request
+    data = request.get_json()
+    title = data.get('title')
+    object_text = data.get('object')
+    description = data.get('description')
+    
+    # Validate required fields
+    if not all([title, object_text, description]):
+        return jsonify({"Text": "Missing required fields"}), 400
+    
+    try:
+        # Create meeting using meetHelper
+        
+        
+        new_meeting = meetHelper.create_meet(
+            title=title,
+            object=object_text,
+            Description=description,
+            CreterMail=current_user.Email
+        )
+        
+        if new_meeting:
+            return jsonify({
+                "Text": "Meeting created successfully",
+                "meetingID": new_meeting.getID(),
+                "invitationLink": new_meeting.getInvitationLink()
+            }), 200
+        else:
+            return jsonify({"Text": "Failed to create meeting"}), 500
+            
+    except Exception as e:
+        print(f"Create meeting error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"Text": "Failed to create meeting"}), 503
 
 
 
