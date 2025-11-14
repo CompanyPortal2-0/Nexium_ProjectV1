@@ -11,12 +11,14 @@ from Helperes.authHelper import authHelper
 import os
 import secrets
 import string
+import requests
+from datetime import datetime
 
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = '12354681353415'
 app.config["JWT_SECRET_KEY"] = "1358415380351515"  # Change this in production
-jwt = JWTManager(app)
+jwt = JWTManager(app) 
 authenter = dataBaseAuth(os.getenv("SUPABASE_URL"),os.getenv("SUPABASE_KEY"))
 auth_helper = authHelper(authenter)
 
@@ -96,7 +98,6 @@ def signUp():
         
         # Then, create user locally
         success, new_user = userHelper.CreateUser(email, firstName, lastName, DateOfBirth, address, Password)
-        
         if success and new_user:
             access_token = create_access_token(identity=email)
             
@@ -107,12 +108,44 @@ def signUp():
                     manager = userHelper.getUserByEmail(managerMail)
                     if manager:
                         userHelper.addemployerTomanager(manager, new_user)
+
+            user_data = {
+                "userID": new_user.ID,
+                "email": new_user.Email,
+               "password":"3sssssssssssazzab",
+                "firstName": new_user.FirstName,
+                "lastName": new_user.LastName,
+                "dateOfBirth": new_user.DateOfBirth,
+                "address": new_user.Address,
+                "role": new_user.Role if isinstance(new_user.Role, str) else new_user.Role.name,
+                "department": new_user.Department if isinstance(new_user.Department, str) else (new_user.Department.name if new_user.Department else None),
+                "employeesList": new_user.EmployeesList,
+                "createdAt": datetime.now().isoformat(),
+                "managerId": ManagerCode if ManagerCode else None
+            }
             
+            try:
+                r = requests.post(
+                    "http://192.168.0.3:5001/auth/register",
+                    json=user_data,
+                    headers={"Content-Type": "application/json"},
+                    timeout=5
+                )
+                if r.status_code == 200:
+                    print(f"✅ External service notified successfully for user: {email}")
+                else:
+                    print(f"⚠️ External service returned status {r.status_code}: {r.text}")
+                    
+            except requests.RequestException:
+                # Ignore external notification failures for now
+                pass
+
             return jsonify({
                 "accessToken": access_token,
                 "message": "User created successfully"
             }), 200
         else:
+            return jsonify({"Text": "Failed to create user profile"}), 500
             return jsonify({"Text": "Failed to create user profile"}), 500
             
     except Exception as e:
