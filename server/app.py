@@ -92,12 +92,14 @@ def signUp():
         return jsonify({"Text": "Missing required fields"}), 400
     
     try:
-        # First, create user in Supabase Auth
+        # First, create user in Supabase Auth (for authentication)
         if not auth_helper.CreateUser(email, Password):
             return jsonify({"Text": "Failed to create authentication account"}), 500
         
-        # Then, create user locally
+        # Then, create user in Nexus API (for data storage)
+        # This is handled inside userHelper.CreateUser() which now uses NexusApiHelper
         success, new_user = userHelper.CreateUser(email, firstName, lastName, DateOfBirth, address, Password)
+        
         if success and new_user:
             access_token = create_access_token(identity=email)
             
@@ -109,49 +111,24 @@ def signUp():
                     if manager:
                         userHelper.addemployerTomanager(manager, new_user)
 
-            user_data = {
-                "userID": new_user.ID,
-                "email": new_user.Email,
-               "password":"3sssssssssssazzab",
-                "firstName": new_user.FirstName,
-                "lastName": new_user.LastName,
-                "dateOfBirth": new_user.DateOfBirth,
-                "address": new_user.Address,
-                "role": new_user.Role if isinstance(new_user.Role, str) else new_user.Role.name,
-                "department": new_user.Department if isinstance(new_user.Department, str) else (new_user.Department.name if new_user.Department else None),
-                "employeesList": new_user.EmployeesList,
-                "createdAt": datetime.now().isoformat(),
-                "managerId": ManagerCode if ManagerCode else None
-            }
-            
-            try:
-                r = requests.post(
-                    "http://192.168.0.3:5001/auth/register",
-                    json=user_data,
-                    headers={"Content-Type": "application/json"},
-                    timeout=5
-                )
-                if r.status_code == 200:
-                    print(f"✅ External service notified successfully for user: {email}")
-                else:
-                    print(f"⚠️ External service returned status {r.status_code}: {r.text}")
-                    
-            except requests.RequestException:
-                # Ignore external notification failures for now
-                pass
-
             return jsonify({
                 "accessToken": access_token,
-                "message": "User created successfully"
+                "message": "User created successfully",
+                "user": {
+                    "id": new_user.ID,
+                    "email": new_user.Email,
+                    "firstName": new_user.FirstName,
+                    "lastName": new_user.LastName,
+                    "role": new_user.Role.name if hasattr(new_user.Role, 'name') else str(new_user.Role)
+                }
             }), 200
         else:
-            return jsonify({"Text": "Failed to create user profile"}), 500
             return jsonify({"Text": "Failed to create user profile"}), 500
             
     except Exception as e:
         print(f"Signup error: {str(e)}")
         import traceback
-        traceback.print_exc()  # ✅ Print full stack trace for debugging
+        traceback.print_exc()
         return jsonify({"Text": "Registration failed, please try again later"}), 503
 
 

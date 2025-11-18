@@ -3,85 +3,131 @@ from supaBase.supaBase import dataBaseAuth
 from modeles.user import User
 from testStore.userJson import JsonUserStore
 from Helperes.passwordHelper import passwordHelper
+from Helperes.nexusApiHelper import NexusApiHelper
 from modeles.role import ROLE
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class userHelper :
+class userHelper:
+    """
+    User Helper - Now uses Nexus API for data storage instead of JSON files
+    Authentication still handled by Supabase
+    """
 
     @staticmethod
     def getUserByEmail(email: str) -> User:
-        AllUseres = JsonUserStore("./userJson.json").get_all_users()
-        for user in AllUseres:
-            if user.Email == email:
-                return user
-        return None
+        """Get user by email from Nexus API"""
+        try:
+            user = NexusApiHelper.get_user_by_email(email)
+            if user:
+                logger.info(f"✅ User retrieved from Nexus API: {email}")
+            else:
+                logger.info(f"⚠️ User not found in Nexus API: {email}")
+            return user
+        except Exception as e:
+            logger.error(f"❌ Error getting user by email from Nexus API: {e}")
+            return None
 
     @staticmethod
-    def CreateUser(Email, FirstName, LastName,  DateOfBirth,  Address , password):
+    def CreateUser(Email, FirstName, LastName, DateOfBirth, Address, password):
+        """
+        Create user in both Supabase (auth) and Nexus API (data storage)
+        """
         try:
-            Jstore = JsonUserStore("./userJson.json")
+            # Generate unique ID
             ID = str(uuid.uuid4())
+            
+            # Create User object
             newUser = User(Email, FirstName, LastName, ID, DateOfBirth, Address, EmployeesList=[])
-            Jstore.add_user(newUser)
+            
+            # Store user in Nexus API
+            success = NexusApiHelper.create_user_in_nexus(newUser)
+            if not success:
+                logger.error(f"❌ Failed to create user in Nexus API: {Email}")
+                return False, None
+            
+            # Store password locally (still using passwordHelper)
             passwordHelper.assignPasswordToUser(newUser.ID, password)
-            return True, newUser  # ✅ Return tuple
+            
+            logger.info(f"✅ User created successfully: {Email}")
+            return True, newUser
+            
         except Exception as e:
-            print(f"Create user error: {e}")
-            return False, None  # ✅ Return tuple
+            logger.error(f"❌ Create user error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, None
 
     @staticmethod
     def getAllUsers(type=None):
-        users = JsonUserStore("./userJson.json").get_all_users()
-        if type is not None:
-            users = [user for user in users if user.Role == type]
-        return users
+        """Get all users from Nexus API, optionally filtered by role"""
+        try:
+            users = NexusApiHelper.get_all_users(role_filter=type)
+            logger.info(f"✅ Retrieved {len(users)} users from Nexus API")
+            return users
+        except Exception as e:
+            logger.error(f"❌ Error getting all users from Nexus API: {e}")
+            return []
 
     @staticmethod
     def removeEmployee(user, emp):
-        if emp in user.EmployeesList:
-            user.EmployeesList.remove(emp)
+        """Remove employee from user's employees list"""
+        try:
+            if emp in user.EmployeesList:
+                user.EmployeesList.remove(emp)
+                # Update in Nexus API
+                NexusApiHelper.update_user(user)
+                logger.info(f"✅ Employee removed: {emp}")
+        except Exception as e:
+            logger.error(f"❌ Error removing employee: {e}")
 
     @staticmethod
     def assignCodeToManager(manager: User, code):
-        codes = JsonUserStore("./codes.json")
-        codes.codeToMangaer(manager, code)
+        """Assign manager code (still using JSON for codes)"""
+        try:
+            codes = JsonUserStore("./codes.json")
+            codes.codeToMangaer(manager, code)
+            logger.info(f"✅ Code assigned to manager: {manager.Email}")
+        except Exception as e:
+            logger.error(f"❌ Error assigning code to manager: {e}")
     
     @staticmethod
     def getManagerFromCode(code):
-        data = JsonUserStore("./codes.json").get_all_code()
-        for item in data:
-            for user_id, stored_code in item.items():
-                if stored_code == code:
-                    return user_id
-        return None
+        """Get manager email from code (still using JSON for codes)"""
+        try:
+            data = JsonUserStore("./codes.json").get_all_code()
+            for item in data:
+                for user_id, stored_code in item.items():
+                    if stored_code == code:
+                        return user_id
+            return None
+        except Exception as e:
+            logger.error(f"❌ Error getting manager from code: {e}")
+            return None
     
     @staticmethod
     def addemployerTomanager(manager: User, user: User):
+        """Add employee to manager's employees list and update in Nexus API"""
         try:
-            # ✅ Load the JSON store
-            Jstore = JsonUserStore("./userJson.json")
-            
-            # ✅ Append User ID instead of entire User object
+            # Add employee email to manager's list if not already present
             if user.Email not in manager.EmployeesList:
                 manager.EmployeesList.append(user.Email)
             
-            # ✅ Update the manager using the existing update_user method
-            # Read current data
-            with open("./userJson.json", 'r') as f:
-                import json
-                data = json.load(f)
+            # Update manager in Nexus API
+            success = NexusApiHelper.update_user(manager)
             
-            # Update the manager's data
-            if manager.ID in data:
-                data[manager.ID]['EmployeesList'] = manager.EmployeesList
-            
-            # Write back to file
-            with open("./userJson.json", 'w') as f:
-                json.dump(data, f, indent=2)
-            
-            return True
+            if success:
+                logger.info(f"✅ Employee {user.Email} added to manager {manager.Email}")
+                return True
+            else:
+                logger.error(f"❌ Failed to update manager in Nexus API: {manager.Email}")
+                return False
+                
         except Exception as e:
-            print(f"Error adding employer to manager: {e}")
+            logger.error(f"❌ Error adding employer to manager: {e}")
             import traceback
             traceback.print_exc()
             return False
+
