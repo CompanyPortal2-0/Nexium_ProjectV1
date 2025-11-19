@@ -1,0 +1,80 @@
+* 13494c8 (HEAD -> _5edmetYassine, origin/_5edmetYassine) done
+* ca8408d it works for adding useres
+| * 3bc4994 (origin/yassine_work1) Add files via upload
+| | * 51ae081 (impliment_old_sys) chat da5elha fe 7it
+| | * 850c440 (addMeetSysteme) old system
+| | * 409c2ff add join meet
+| | * 96bfdfe create meet api
+| | * 88b5284 add meet jhelper
+| |/  
+|/|   
+* | f780cb5 (main) create meet class
+|/  
+* 24f71f7 (origin/main, origin/HEAD, addHRfunctions) codePart work
+* bcc06c8 json error
+* 7a1d7a4 add code generateor
+* abe6cea good
+* 0b2232f (addsupaBase2) copilot nadhef lcode
+* d5495b2 login and signup worked
+| * 2b1de87 (addsupaBase) tehradna
+| * c968a8d aho grib teslek
+| * 035cc5d supabase mat7ebech te5dem
+|/  
+| * 349ba6e (joinCode) tehradna
+|/  
+* 10a54f6 3odna'
+* 7b7e00c add HR routes for managing employees and ensure EmployeesList is initialized
+* f1f0556 add HR routes for managing employees and ensure EmployeesList is initialized
+* 46ccc3b implement user authentication and password management features
+* 1bed62d remove unneeded classes
+* 1c64829 change user class
+| * d14a144 (origin/goBackEnd, goBackEnd) create admin type in modeles package
+| * af3c927 awel module
+| * 05f8fd1 init Go code
+|/  
+* 75ea9ae (origin/pyBackEnd, pyBackEnd) add sign up
+* 815f10a generate first app
+* d7f7497 create Helperes
+* 09fa6f4 create templates
+* 1febb98 init server
+* 3a33b4b init commit
+* 13494c8 (HEAD -> _5edmetYassine, origin/_5edmetYassine) done
+* ca8408d it works for adding useres
+| * 3bc4994 (origin/yassine_work1) Add files via upload
+| | * 51ae081 (impliment_old_sys) chat da5elha fe 7it
+| | * 850c440 (addMeetSysteme) old system
+| | * 409c2ff add join meet
+| | * 96bfdfe create meet api
+| | * 88b5284 add meet jhelper
+| |/  
+|/|   
+* | f780cb5 (main) create meet class
+|/  
+* 24f71f7 (origin/main, origin/HEAD, addHRfunctions) codePart work
+* bcc06c8 json error
+* 7a1d7a4 add code generateor
+* abe6cea good
+* 0b2232f (addsupaBase2) copilot nadhef lcode
+* d5495b2 login and signup worked
+| * 2b1de87 (addsupaBase) tehradna
+| * c968a8d aho grib teslek
+| * 035cc5d supabase mat7ebech te5dem
+|/  
+| * 349ba6e (joinCode) tehradna
+|/  
+* 10a54f6 3odna'
+* 7b7e00c add HR routes for managing employees and ensure EmployeesList is initialized
+* f1f0556 add HR routes for managing employees and ensure EmployeesList is initialized
+* 46ccc3b implement user authentication and password management features
+* 1bed62d remove unneeded classes
+* 1c64829 change user class
+| * d14a144 (origin/goBackEnd, goBackEnd) create admin type in modeles package
+| * af3c927 awel module
+| * 05f8fd1 init Go code
+|/  
+* 75ea9ae (origin/pyBackEnd, pyBackEnd) add sign up
+* 815f10a generate first app
+* d7f7497 create Helperes
+* 09fa6f4 create templates
+* 1febb98 init server
+* 3a33b4b init commit
