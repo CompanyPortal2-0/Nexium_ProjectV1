@@ -12,12 +12,14 @@ class dataBaseAuth :
         })
         self.supabase: Client = create_client(url, key,options)
     
+
+
     def createUser(self, email,password):
         return self.supabase.auth.sign_up(
     {
         "email": f"{email}",
         "password": f"{password}",
-    })
+    }).model_dump_json()
         
     
 
