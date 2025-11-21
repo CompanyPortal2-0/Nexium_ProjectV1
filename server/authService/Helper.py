@@ -26,8 +26,19 @@ class authHelper :
     
     def login (self,Email,password):
         try:
+            print("email : ",Email)
+            print("passwor : " , password)
             result = self.authenticater.login(Email,password)
-            return result is not None
+            print("result type : ", type(result))
+            if(result is not None):
+                result = json.loads(result)
+                session = (result.get("session", {}))
+                user = (result.get("user", {}))
+                print("user : ")
+                print(user)
+                print("seesion : ")
+                print(session)
+                return json.dumps({"Token":session.get("access_token"),"id":user.get("id")})
         except Exception as e:
             print(f"Auth login error: {e}")
             return False

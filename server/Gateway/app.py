@@ -13,7 +13,7 @@ app = Flask(__name__)
 AUTH_server = os.getenv('AUTH_SERVER')
 SAVING_server = os.getenv('SAVING_server')
 
-@app.route('/login')
+@app.route('/login',methods=['POST'])
 def login():
     data = request.get_json()
     email = data.get('email')
@@ -25,7 +25,7 @@ def login():
     if (email is None) or (password is None):
         return jsonify({"Text": "missing content"}), 401
     else :
-        return requests.get(f'http://{AUTH_server}/login',json=data).json() , 200
+        return requests.post(f'http://{AUTH_server}/login',json=data).json() , 200
     
 @app.route('/signup', methods=['POST'])
 def signUp():

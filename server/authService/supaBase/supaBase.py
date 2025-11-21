@@ -28,8 +28,7 @@ class dataBaseAuth :
         {
             "email": f"{email}",
             "password": f"{password}",
-        }
-)
+        }).model_dump_json()
 
         
     

@@ -29,12 +29,12 @@ def signUp():
     else :
         return jsonify({"error":"error in auth_helper.CreateUser(email,Password)"}) , 500
 
-@app.route("/login")
+@app.route("/login",methods=['POST'])
 def login():
     data = request.get_json()
     email = data.get('email')
-    Password = data.get('Password')
-    result = auth_helper.login(email,Password)
+    Password = data.get('password')
+    result = json.loads(auth_helper.login(email,Password))
     if(result is not None) :
         return jsonify({"Token":result.get("Token")}) , 200
     else :
