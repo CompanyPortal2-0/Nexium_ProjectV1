@@ -8,6 +8,7 @@ from testStore.userJson import JsonUserStore
 from supaBase.supaBase import dataBaseAuth
 from werkzeug.serving import WSGIRequestHandler
 from Helperes.authHelper import authHelper
+from Helperes.nexusApiHelper import NexusApiHelper
 import os
 import secrets
 import string
@@ -31,7 +32,7 @@ class CustomRequestHandler(WSGIRequestHandler):
 @jwt_required()
 def getCode():
     current_employer = userHelper.getUserByEmail(get_jwt_identity())
-    if current_employer is None or current_employer.getRole() != ROLE.HR:
+    if current_employer is None or current_employer.getRole() != ROLE.MANAGER:
         return jsonify({"Text": "not authorized"}), 401
     data = request.get_json()
     managerMail=data.get('managermail')
@@ -40,6 +41,8 @@ def getCode():
         return jsonify({"Text": "user not found"}), 404
     code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
     userHelper.assignCodeToManager(user,code)
+    #hana
+    NexusApiHelper.saveCode(code,user.getId())
 
     return jsonify({"code": code})
 
@@ -51,6 +54,7 @@ def getCode():
 
 @app.route('/login', methods=['POST'])
 def login():
+    
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -64,7 +68,7 @@ def login():
         if user is None:
             return jsonify({"Text": "user not found"}), 404
         
-        if passwordHelper.isPasswordTrueForUser(user.getId(), password) and auth_helper.login(email,password):
+        if  auth_helper.login(email,password):
             access_token = create_access_token(identity=email)
             return jsonify({"accessToken": f"{access_token}"}), 200
         else:

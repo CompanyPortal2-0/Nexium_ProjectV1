@@ -7,7 +7,7 @@ import requests
 from typing import Optional, List, Dict, Any
 from modeles.user import User
 from modeles.role import ROLE
-from modeles.department import DEPARTMENT
+from modeles.department import Department
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,21 @@ logger = logging.getLogger(__name__)
 class NexusApiHelper:
     """Helper class to interact with Nexus API for user data management"""
     
-    BASE_URL = "http://127.0.0.1:5001"
+    BASE_URL = "http://192.168.0.253:5001"
+
+    @staticmethod
+    def saveCode(code,id):
+        response = requests.post(
+                f"{NexusApiHelper.BASE_URL}/invite/codes",
+                timeout=10,
+                json={
+                    'code':code,
+                    'id':id,
+                    'max_uses' : 5, #badelha twali ml .env
+                    'expires_in_days' : 60 #kima li fougha
+                }
+            )
+        
     
     @staticmethod
     def _convert_role_to_nexus(role: ROLE) -> str:
@@ -40,19 +54,19 @@ class NexusApiHelper:
         return role_mapping.get(nexus_role.lower(), ROLE.GUEST)
     
     @staticmethod
-    def _convert_department_to_nexus(department) -> Optional[str]:
-        """Convert internal DEPARTMENT enum to string"""
-        if department is None:
+    def _convert_Department_to_nexus(Department) -> Optional[str]:
+        """Convert internal Department enum to string"""
+        if Department is None:
             return None
-        return department.name if isinstance(department, DEPARTMENT) else str(department)
+        return Department.name if isinstance(Department, Department) else str(Department)
     
     @staticmethod
-    def _convert_nexus_department_to_internal(dept_str: Optional[str]) -> Optional[DEPARTMENT]:
-        """Convert Nexus department string to internal DEPARTMENT enum"""
+    def _convert_nexus_Department_to_internal(dept_str: Optional[str]) -> Optional[Department]:
+        """Convert Nexus Department string to internal Department enum"""
         if dept_str is None or dept_str == "":
             return None
         try:
-            return DEPARTMENT[dept_str.upper()]
+            return Department[dept_str.upper()]
         except (KeyError, AttributeError):
             return None
     
@@ -62,17 +76,19 @@ class NexusApiHelper:
         Create a user in Nexus API
         Note: This is for DATA storage only, authentication is still handled by Supabase
         """
+        
         try:
             user_data = {
                 "email": user.Email,
-                "password": "temp_password_not_used",  # Nexus requires password field but we don't use it for auth
+                "password": "temp_password_not_used222",  # Nexus requires password field but we don't use it for auth
                 "role": NexusApiHelper._convert_role_to_nexus(user.Role),
                 "first_name": user.FirstName,
                 "last_name": user.LastName,
                 "address": user.Address,
-                "department": NexusApiHelper._convert_department_to_nexus(user.Department),
+                "Department": NexusApiHelper._convert_Department_to_nexus(user.Department),
                 "userID": user.ID,  # Store our internal ID
-                "date_of_birth": user.DateOfBirth
+                "date_of_birth": user.DateOfBirth,
+                "code":11
             }
             
             response = requests.post(
@@ -109,7 +125,7 @@ class NexusApiHelper:
                 f"{NexusApiHelper.BASE_URL}/users/",
                 timeout=10
             )
-            
+            print("useres from massoud : ",response.json())
             if response.status_code != 200:
                 logger.error(f"❌ Failed to get users from Nexus API: {response.status_code}")
                 return None
@@ -215,7 +231,7 @@ class NexusApiHelper:
                 "first_name": user.FirstName,
                 "last_name": user.LastName,
                 "address": user.Address,
-                "department": NexusApiHelper._convert_department_to_nexus(user.Department),
+                "Department": NexusApiHelper._convert_Department_to_nexus(user.Department),
                 "role": NexusApiHelper._convert_role_to_nexus(user.Role)
             }
             
@@ -294,8 +310,8 @@ class NexusApiHelper:
         # Set role
         user.Role = NexusApiHelper._convert_nexus_role_to_internal(nexus_user_data.get("role", "employee"))
         
-        # Set department
-        user.Department = NexusApiHelper._convert_nexus_department_to_internal(nexus_user_data.get("department"))
+        # Set Department
+        user.Department = NexusApiHelper._convert_nexus_Department_to_internal(nexus_user_data.get("Department"))
         
         # Set employees list (if manager)
         user.EmployeesList = nexus_user_data.get("employeesList", [])

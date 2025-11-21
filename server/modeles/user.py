@@ -9,7 +9,7 @@ from modeles.department import Department
 class User:
 
 
-    def __init__(self,Email=None, FirstName=None, LastName=None,  ID=None,DateOfBirth=None,  Address=None , EmployeesList=None,Department=None,Role=ROLE.GUEST) :
+    def __init__(self,Email=None, FirstName=None, LastName=None,  ID=None,DateOfBirth=None,  Address=None , EmployeesList=None,Department=None,Role=ROLE.MANAGER) :
         self.ID = ID
         self.FirstName = FirstName
         self.LastName = LastName

@@ -49,7 +49,7 @@ class userHelper:
                 return False, None
             
             # Store password locally (still using passwordHelper)
-            passwordHelper.assignPasswordToUser(newUser.ID, password)
+            # passwordHelper.assignPasswordToUser(newUser.ID, password)
             
             logger.info(f"✅ User created successfully: {Email}")
             return True, newUser
