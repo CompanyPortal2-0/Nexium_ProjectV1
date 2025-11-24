@@ -11,6 +11,9 @@ load_dotenv()
 app = Flask(__name__)
 authenter = dataBaseAuth(os.getenv("SUPABASE_URL"),os.getenv("SUPABASE_KEY"))
 auth_helper = authHelper(authenter)
+SAVING_server = os.getenv('SAVING_server')
+
+
 
 @app.route("/signup")
 def signUp():

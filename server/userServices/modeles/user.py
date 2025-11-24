@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from modeles.department import Department
 from modeles.role import ROLE
-from modeles.department import Department
+
 
 
 class User:
