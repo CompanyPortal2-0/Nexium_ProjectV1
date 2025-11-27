@@ -19,7 +19,112 @@ UserServices = os.getenv('UserServices_server')
 
 app.secret_key = 'your-super-secret-jwt-token-with-at-least-32-characters-long'#hadhi nafesha fel .env ta3 image docker
 
-jwt = JWTManager(app) 
+
+
+jwt = JWTManager(app)
+
+
+
+
+
+
+
+
+
+
+
+
+# Health check endpoint
+@app.route('/health', methods=['GET'])
+def health():
+    """
+    Kubernetes health check endpoint
+    Returns detailed health status of gateway and downstream services
+    """
+    health_status = {
+        "status": "healthy",
+        "service": "gateway",
+        "version": "1.0.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "pod_name": os.getenv('POD_NAME', 'unknown'),
+        "pod_ip": os.getenv('POD_IP', 'unknown'),
+    }
+    
+    # Check if it's a liveness or readiness probe
+    check_type = request.headers.get('X-Health-Check', 'general')
+    
+    if check_type == 'readiness':
+        # For readiness probe, check downstream services
+        downstream_services = {
+            'auth-service': AUTH_SERVER,
+            'user-service': USER_SERVICE,
+            'saving-service': SAVING_SERVER
+        }
+        
+        services_status = {}
+        all_healthy = True
+        
+        for service_name, service_url in downstream_services.items():
+            try:
+                response = requests.get(
+                    f"{service_url}/health",
+                    timeout=2
+                )
+                services_status[service_name] = {
+                    'status': 'healthy' if response.status_code == 200 else 'unhealthy',
+                    'response_time': response.elapsed.total_seconds()
+                }
+            except Exception as e:
+                services_status[service_name] = {
+                    'status': 'unreachable',
+                    'error': str(e)
+                }
+                all_healthy = False
+        
+        health_status['downstream_services'] = services_status
+        health_status['status'] = 'healthy' if all_healthy else 'degraded'
+        
+        if not all_healthy:
+            return jsonify(health_status), 503
+    
+    return jsonify(health_status), 200
+
+# Readiness check (simple version)
+@app.route('/ready', methods=['GET'])
+def ready():
+    """Simple readiness check"""
+    return jsonify({"status": "ready"}), 200
+
+# Liveness check (simple version)
+@app.route('/live', methods=['GET'])
+def live():
+    """Simple liveness check"""
+    return jsonify({"status": "alive"}), 200
+
+# Metrics endpoint (for Prometheus - optional)
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    """Prometheus metrics endpoint"""
+    # TODO: Implement actual metrics collection
+    return """# HELP gateway_requests_total Total requests
+# TYPE gateway_requests_total counter
+gateway_requests_total 0
+""", 200, {'Content-Type': 'text/plain'}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @app.route('/login',methods=['POST'])
 def login():
     data = request.get_json()

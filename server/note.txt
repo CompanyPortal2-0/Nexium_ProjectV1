@@ -1,0 +1,7 @@
+deployment : 
+1-tasne3 image fel dockerDesktop
+docker build -t
+2-theza ll Minikube 
+minikube image load
+3-ta3mel run ll yml 
+kubectl apply -f 
