@@ -27,8 +27,7 @@ def get_user_by_email(email):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/assign-code', methods=['POST'])
-def assign_code():
+
     """Assign invitation code to a manager"""
     try:
         data = request.get_json()

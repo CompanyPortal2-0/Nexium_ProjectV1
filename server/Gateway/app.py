@@ -78,7 +78,9 @@ def signUp():
                 "userID": id,  
                 "date_of_birth":DateOfBirth
             }
-        response_from_saving_service = requests.post(f'http://{SAVING_server}/users/',json=user_data)
+        HEADERS = {"X-Internal-Key": "INTERNAL_API_KEY"} #INTERNAL_API_KEY badelha fe .env
+
+        response_from_saving_service = requests.post(f'http://{SAVING_server}/users/',json=user_data,headers=HEADERS)
         if (response_from_saving_service.status_code == 200):
             return jsonify({"AuthToken": {response_from_auth_service.json().get("Token")}}), 200
         else : 
