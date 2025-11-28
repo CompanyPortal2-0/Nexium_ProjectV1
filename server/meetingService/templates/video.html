@@ -152,8 +152,8 @@
 <body>
     <script>
         const RoomId='{{meet_id}}';
-        const user=JSON.parse('{{user | safe}}');
-        const SERVER='{{server}}';
+        const user_mail ='{{user_mail}}';
+        const SERVER ='{{server}}';
     </script>
     <div class="container">
         <div class="header">
@@ -185,6 +185,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
-    <script src="../static/webrtc.js"></script>
+    <script src="../../static/webrtc.js"></script>
 </body>
 </html>

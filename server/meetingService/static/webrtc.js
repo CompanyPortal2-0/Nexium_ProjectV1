@@ -1,5 +1,4 @@
 // Global variables
-//require('.env').config();
 let localStream = null;
 let peerConnections = {}; // Store multiple peer connections
 let socket = null;
@@ -9,7 +8,7 @@ let isJoining = false; // Prevent multiple join attempts
 let reconnectAttempts = 0;
 let maxReconnectAttempts = 3;
 let reconnectInterval = 2000; // 2 seconds
-let peerUsernames = {}; // New object to store peer usernames
+let peerUserEmails = {}; // Store peer emails
 
 // DOM elements
 const startButton = document.getElementById('startButton');
@@ -19,11 +18,8 @@ const toggleAudioButton = document.getElementById('toggleAudioButton');
 const toggleVideoButton = document.getElementById('toggleVideoButton');
 const localVideo = document.getElementById('localVideo');
 const videoGrid = document.getElementById('videoGrid');
-//const roomIdInput = document.getElementById('roomId');
 const statusDiv = document.getElementById('status');
 const participantCountElement = document.getElementById('participantCount');
-//const user = JSON.parse(User.trim());
-//const roomId= document.getElementById('roomId');
 
 const configuration = {
     iceServers: [
@@ -47,14 +43,14 @@ const configuration = {
 
 // Connect to Socket.IO server with reconnection logic
 function connectSocket() {
-    console.log(user);
+    console.log('User email:', user_mail);
     if (socket && socket.connected) {
         console.log("Socket already connected");
         return;
     }
 
     updateStatus('Connecting to signaling server...');
-    //console.log()
+    
     // Use your server URL here (HTTP or HTTPS)
     socket = io.connect(SERVER, {
         secure: true,
@@ -64,10 +60,8 @@ function connectSocket() {
         reconnectionDelay: 1000,
         timeout: 10000,
         query: {
-            customId: user.id,
-            username: user.username
+            user_email: user_mail
         }
-        // 10 seconds timeout
     });
 
     // Socket event handlers
@@ -100,10 +94,10 @@ function connectSocket() {
         roomId = data.room;
         isJoining = false;
 
-        // Store peer usernames if provided
+        // Store peer emails if provided
         if (data.peerInfo && data.peerInfo.length > 0) {
             data.peerInfo.forEach(peer => {
-                peerUsernames[peer.id] = peer.username;
+                peerUserEmails[peer.id] = peer.user_email;
             });
         }
 
@@ -130,12 +124,12 @@ function connectSocket() {
     socket.on('new-peer', (data) => {
         const peerId = data.peerId;
 
-        // Store username if provided
-        if (data.username) {
-            peerUsernames[peerId] = data.username;
+        // Store user email if provided
+        if (data.user_email) {
+            peerUserEmails[peerId] = data.user_email;
         }
 
-        updateStatus(`New peer joined: ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+        updateStatus(`New peer joined: ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
 
         // Small delay to ensure both sides aren't creating connections simultaneously
         setTimeout(() => {
@@ -151,14 +145,14 @@ function connectSocket() {
     // Handle peer disconnected
     socket.on('peer-disconnected', (data) => {
         const peerId = data.peerId;
-        const peerName = peerUsernames[peerId] || peerId.substring(0, 5);
-        updateStatus(`Peer disconnected: ${peerName}...`);
+        const peerEmail = peerUserEmails[peerId] || peerId.substring(0, 5);
+        updateStatus(`Peer disconnected: ${peerEmail}...`);
 
         // Remove peer connection and video
         removePeerConnection(peerId);
 
-        // Remove from username mapping
-        delete peerUsernames[peerId];
+        // Remove from email mapping
+        delete peerUserEmails[peerId];
 
         // Update participant count
         updateParticipantCount(participantCount - 1);
@@ -169,13 +163,13 @@ function connectSocket() {
         const peerId = data.peerId;
         const offer = data.offer;
 
-        // Store username if provided
-        if (data.username) {
-            peerUsernames[peerId] = data.username;
+        // Store user email if provided
+        if (data.user_email) {
+            peerUserEmails[peerId] = data.user_email;
         }
 
-        console.log(`Received offer from: ${peerUsernames[peerId] || peerId.substring(0, 5)}...`, offer);
-        updateStatus(`Received offer from: ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+        console.log(`Received offer from: ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`, offer);
+        updateStatus(`Received offer from: ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
 
         // Create peer connection if it doesn't exist
         if (!peerConnections[peerId]) {
@@ -196,13 +190,13 @@ function connectSocket() {
         const peerId = data.peerId;
         const answer = data.answer;
 
-        // Store username if provided
-        if (data.username) {
-            peerUsernames[peerId] = data.username;
+        // Store user email if provided
+        if (data.user_email) {
+            peerUserEmails[peerId] = data.user_email;
         }
 
-        console.log(`Received answer from: ${peerUsernames[peerId] || peerId.substring(0, 5)}...`, answer);
-        updateStatus(`Received answer from: ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+        console.log(`Received answer from: ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`, answer);
+        updateStatus(`Received answer from: ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
 
         try {
             await handleAnswer(peerId, answer);
@@ -282,12 +276,12 @@ function init() {
 
     updateStatus('App initialized. Click "Start" to begin.');
 
-    // Set up local video label with current user's name
+    // Set up local video label with current user's email
     const localVideoContainer = document.getElementById('localVideoContainer');
     if (localVideoContainer) {
         const localNameLabel = document.createElement('div');
         localNameLabel.className = 'peer-name';
-        localNameLabel.textContent = `${user.name} (You)`;
+        localNameLabel.textContent = `${user_mail} (You)`;
         localVideoContainer.appendChild(localNameLabel);
     }
 }
@@ -358,10 +352,10 @@ function joinRoom(roomIdParam, isRejoin = false) {
         });
     }
 
-    // Join the specified room with username
+    // Join the specified room with user email
     socket.emit('join', {
         room: targetRoomId,
-        username: user.name // Send username when joining
+        user_email: user_mail
     });
 
     // Set a timeout for join operation
@@ -417,9 +411,9 @@ function createPeerConnection(peerId) {
             peerConnections[peerId].connectionState = peerConnection.connectionState;
 
             if (peerConnection.connectionState === 'connected') {
-                updateStatus(`Connected to peer ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+                updateStatus(`Connected to peer ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
             } else if (peerConnection.connectionState === 'failed') {
-                updateStatus(`Connection to peer ${peerUsernames[peerId] || peerId.substring(0, 5)}... failed`);
+                updateStatus(`Connection to peer ${peerUserEmails[peerId] || peerId.substring(0, 5)}... failed`);
                 // Try to reconnect
                 setTimeout(() => {
                     recreatePeerConnection(peerId);
@@ -427,7 +421,7 @@ function createPeerConnection(peerId) {
             }
         };
 
-        updateStatus(`Peer connection created for ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+        updateStatus(`Peer connection created for ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
         return peerConnection;
     } catch (error) {
         console.error(`Error creating peer connection: ${error}`);
@@ -460,11 +454,11 @@ async function sendOffer(peerId) {
             room: roomId,
             targetId: peerId,
             offer: peerConnection.localDescription,
-            username: user.name // Send username with the offer
+            user_email: user_mail
         });
 
-        console.log(`Sent offer to ${peerUsernames[peerId] || peerId.substring(0, 5)}...`, peerConnection.localDescription);
-        updateStatus(`Sent offer to ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+        console.log(`Sent offer to ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`, peerConnection.localDescription);
+        updateStatus(`Sent offer to ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
     } catch (error) {
         updateStatus(`Error creating offer: ${error.message}`);
         console.error('Error creating offer:', error);
@@ -517,11 +511,11 @@ async function handleOffer(peerId, offer) {
             room: roomId,
             targetId: peerId,
             answer: peerConnection.localDescription,
-            username: user.name // Send username with the answer
+            user_email: user_mail
         });
 
-        console.log(`Sent answer to ${peerUsernames[peerId] || peerId.substring(0, 5)}...`, peerConnection.localDescription);
-        updateStatus(`Sent answer to ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+        console.log(`Sent answer to ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`, peerConnection.localDescription);
+        updateStatus(`Sent answer to ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
 
     } catch (error) {
         updateStatus(`Error handling offer: ${error.message}`);
@@ -545,7 +539,7 @@ async function handleAnswer(peerId, answer) {
             // Process any buffered ICE candidates
             await processBufferedIceCandidates(peerId);
 
-            updateStatus(`Connection established with ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+            updateStatus(`Connection established with ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
         } else {
             console.warn(`Cannot process answer: connection in state ${peerConnection.signalingState}`);
 
@@ -641,7 +635,7 @@ function handleTrackEvent(peerId, event) {
     if (event.streams && event.streams[0]) {
         // Create or update video element
         createOrUpdateVideoElement(peerId, event.streams[0]);
-        updateStatus(`Receiving stream from ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+        updateStatus(`Receiving stream from ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
     }
 }
 
@@ -655,11 +649,11 @@ function handleICEConnectionStateChange(peerId) {
 
     switch (peerConnection.iceConnectionState) {
         case 'connected':
-            updateStatus(`ICE Connected to ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+            updateStatus(`ICE Connected to ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
             break;
 
         case 'disconnected':
-            updateStatus(`ICE Disconnected from ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+            updateStatus(`ICE Disconnected from ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
             // Wait a bit to see if it reconnects automatically
             setTimeout(() => {
                 if (peerConnections[peerId] &&
@@ -670,7 +664,7 @@ function handleICEConnectionStateChange(peerId) {
             break;
 
         case 'failed':
-            updateStatus(`ICE Connection failed with ${peerUsernames[peerId] || peerId.substring(0, 5)}...`);
+            updateStatus(`ICE Connection failed with ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
             // Recreate the connection
             recreatePeerConnection(peerId);
             break;
@@ -702,8 +696,8 @@ function createOrUpdateVideoElement(peerId, stream) {
         const peerName = document.createElement('div');
         peerName.className = 'peer-name';
 
-        // Use username if available, otherwise fallback to peer ID
-        peerName.textContent = peerUsernames[peerId] || `Peer ${peerId.substring(0, 5)}...`;
+        // Use email if available, otherwise fallback to peer ID
+        peerName.textContent = peerUserEmails[peerId] || `Peer ${peerId.substring(0, 5)}...`;
 
         // Add elements to container
         videoContainer.appendChild(videoElement);
@@ -793,9 +787,9 @@ function hangUp() {
     hangupButton.disabled = true;
     updateParticipantCount(0);
 
-    // Reset room ID and clear usernames
+    // Reset room ID and clear emails
     roomId = null;
-    peerUsernames = {};
+    peerUserEmails = {};
 
     updateStatus('Left the meeting');
 }

@@ -1,15 +1,18 @@
 from typing import List
+import uuid
+from datetime import datetime
 
 class Meeting:
-    def __init__(self):
-        self.__ID: str = ""
-        self.__Title: str = ""
-        self.__Object: str = ""
-        self.__InvitationLink: str = ""
+    def __init__(self, title: str = "", obj: str = "", description: str = "", invited_employees: List[str] = None, password: str = ""):
+        self.__ID: str = str(uuid.uuid4())
+        self.__Title: str = title
+        self.__Object: str = obj
+        self.__InvitationLink: str = f"http://localhost:7053/room/{self.__ID}"
         self.__LogPath: str = ""
-        self.__Description: str = ""
-        self.__InvitedEmployeesList: List = []
-        self.__CreatedAt: str = ""
+        self.__Description: str = description
+        self.__InvitedEmployeesList: List = invited_employees if invited_employees else []
+        self.__CreatedAt: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.__Password: str = password
         
     
     def getID(self) -> str:
@@ -29,6 +32,9 @@ class Meeting:
     
     def setObject(self, Object: str) -> None:
         self.__Object = Object
+    
+    def getInvitationLink(self) -> str:
+        return self.__InvitationLink
     
     def setInvitationLink(self, InvitationLink: str) -> None:
         self.__InvitationLink = InvitationLink
@@ -53,3 +59,9 @@ class Meeting:
     
     def getCreatedAt(self) -> str:
         return self.__CreatedAt
+    
+    def getPassword(self) -> str:
+        return self.__Password
+    
+    def setPassword(self, Password: str) -> None:
+        self.__Password = Password
