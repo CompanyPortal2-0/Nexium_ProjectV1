@@ -5,3 +5,6 @@ docker build -t
 minikube image load
 3-ta3mel run ll yml 
 kubectl apply -f 
+
+a3mel port forwarding : 
+kubectl port-forward svc/gateway 7050:7050
