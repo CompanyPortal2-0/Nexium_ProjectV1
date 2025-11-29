@@ -10,9 +10,9 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 gateway_io = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Store separate backend connections for each client
-client_connections = {}  # {gateway_client_sid: backend_socketio_client}
+client_connections_Game = {}  # {gateway_client_sid: backend_socketio_client}
 
-BACKEND_SERVER_URL = 'http://localhost:3000'
+Game_server = 'http://localhost:3000'
 
 
 def create_backend_connection(client_sid):
@@ -41,7 +41,7 @@ def create_backend_connection(client_sid):
         gateway_io.emit('error', data, to=client_sid)
     
     try:
-        backend.connect(BACKEND_SERVER_URL)
+        backend.connect(Game_server)
         print(f"✅ Created backend connection for client {client_sid}")
         return backend
     except Exception as e:
@@ -60,7 +60,7 @@ def handle_client_connect():
     # Create a dedicated backend connection for this client
     backend = create_backend_connection(client_sid)
     if backend:
-        client_connections[client_sid] = backend
+        client_connections_Game[client_sid] = backend
     else:
         emit('error', 'Failed to connect to game server')
 
@@ -72,12 +72,12 @@ def handle_client_disconnect():
     print(f"❌ Client disconnected: {client_sid}")
     
     # Disconnect and cleanup backend connection
-    if client_sid in client_connections:
+    if client_sid in client_connections_Game:
         try:
-            client_connections[client_sid].disconnect()
+            client_connections_Game[client_sid].disconnect()
         except:
             pass
-        del client_connections[client_sid]
+        del client_connections_Game[client_sid]
 
 
 @gateway_io.on('createMatch')
@@ -86,8 +86,8 @@ def handle_create_match():
     client_sid = request.sid
     print(f"Client {client_sid} -> Backend: createMatch")
     
-    if client_sid in client_connections:
-        client_connections[client_sid].emit('createMatch')
+    if client_sid in client_connections_Game:
+        client_connections_Game[client_sid].emit('createMatch')
 
 
 @gateway_io.on('joinMatch')
@@ -96,8 +96,8 @@ def handle_join_match(match_code):
     client_sid = request.sid
     print(f"Client {client_sid} -> Backend: joinMatch {match_code}")
     
-    if client_sid in client_connections:
-        client_connections[client_sid].emit('joinMatch', match_code)
+    if client_sid in client_connections_Game:
+        client_connections_Game[client_sid].emit('joinMatch', match_code)
 
 
 @gateway_io.on('makeMove')
@@ -106,8 +106,8 @@ def handle_make_move(data):
     client_sid = request.sid
     print(f"Client {client_sid} -> Backend: makeMove")
     
-    if client_sid in client_connections:
-        client_connections[client_sid].emit('makeMove', data)
+    if client_sid in client_connections_Game:
+        client_connections_Game[client_sid].emit('makeMove', data)
 
 
 @gateway_io.on('restartGame')
@@ -116,15 +116,15 @@ def handle_restart_game(match_code):
     client_sid = request.sid
     print(f"Client {client_sid} -> Backend: restartGame {match_code}")
     
-    if client_sid in client_connections:
-        client_connections[client_sid].emit('restartGame', match_code)
+    if client_sid in client_connections_Game:
+        client_connections_Game[client_sid].emit('restartGame', match_code)
 
 
 @app.route('/health')
 def health_check():
     """Health check endpoint"""
-    active_connections = len(client_connections)
-    connected_backends = sum(1 for c in client_connections.values() if c.connected)
+    active_connections = len(client_connections_Game)
+    connected_backends = sum(1 for c in client_connections_Game.values() if c.connected)
     
     return {
         "status": "ok",
@@ -136,7 +136,7 @@ def health_check():
 
 if __name__ == '__main__':
     print("🚀 Starting Flask Gateway Server...")
-    print(f"📡 Backend server: {BACKEND_SERVER_URL}")
+    print(f"📡 Backend server: {Game_server}")
     print(f"🌐 Gateway listening on port 5000")
     
     gateway_io.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
