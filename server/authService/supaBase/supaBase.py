@@ -29,6 +29,9 @@ class dataBaseAuth :
             "email": f"{email}",
             "password": f"{password}",
         }).model_dump_json()
+    
+    def delUser(self,userId):
+        return self.supabase.auth.admin.delete_user(userId).model_dump_json()
 
         
     

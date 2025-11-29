@@ -42,3 +42,12 @@ class authHelper :
         except Exception as e:
             print(f"Auth login error: {e}")
             return False
+        
+    def deleteUser(self,userId):
+        try:
+            result = self.authenticater.delUser(userId)
+            if(result is not None):
+                result = json.loads(result)
+                return json.dumps({"status":"user deleted"})
+        except Exception as e :
+            print(f"matna7ach user :{userId} ")

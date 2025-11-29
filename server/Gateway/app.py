@@ -399,43 +399,18 @@ def signUp():
     if not all([email, firstName, lastName, Password, DateOfBirth, address]):
         return jsonify({"Text": "Missing required fields"}), 400
     
-    response_from_auth_service = requests.get(f'http://{AUTH_server}/signup', json={
+    response_from_auth_service = requests.post(f'http://{AUTH_server}/signup', json={
         "email": email,
-        "Password": Password
+        "Password": Password,
+        "FirstName": firstName,
+        "LastName": lastName,
+        "DateOfBirth": DateOfBirth,
+        "Address": address,
+        "managercode": ManagerCode
     })
 
     if response_from_auth_service.status_code == 200:
-        response_from_auth_service_data = response_from_auth_service.json()
-        
-        if isinstance(response_from_auth_service_data, str):
-            response_from_auth_service_data = json.loads(response_from_auth_service_data)
-        
-        print("Parsed data:", response_from_auth_service_data)
-        
-        id = response_from_auth_service_data.get("id")
-        user_data = {
-            "email": email,
-            "password": "temp_password_not_us11447DDDD@@@ed",  
-            "role": ROLE.EMPLOYER.value,
-            "first_name": firstName,
-            "last_name": lastName,
-            "address": address,
-            "department": "hadhi n3amerha mba3ed",
-            "userID": id,  
-            "date_of_birth": DateOfBirth
-        }
-        HEADERS = {"X-Internal-Key": "INTERNAL_API_KEY"}
-
-        response_from_saving_service = requests.post(
-            f'http://{SAVING_server}/users/', 
-            json=user_data, 
-            headers=HEADERS
-        )
-        
-        if response_from_saving_service.status_code == 200:
             return jsonify({"AuthToken": {response_from_auth_service.json().get("Token")}}), 200
-        else:
-            return jsonify({"error": "we get an error from saving error"}), 500
     else:
         return jsonify({"error": "we get an error from auth service"}), 500
 
