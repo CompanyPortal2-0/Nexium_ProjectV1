@@ -96,7 +96,7 @@ def room(meet_id, user_email):
     if userMail not in participants:
         return "You are not a member of this meet", 403
 
-    return render_template("video.html", meet_id=meet_id, user_mail=userMail, server="https://192.168.100.183:7053")
+    return render_template("video.html", meet_id=meet_id, user_mail=userMail, server="https://192.168.100.190:5001")
 
 @socketio.on('connect')
 def handle_connect():
@@ -218,5 +218,6 @@ if __name__ == '__main__':
         host='0.0.0.0',
         port=7053,
         certfile='meetingService\\certifs\\cert.pem',
-        keyfile='meetingService\\certifs\\key.pem'
+        keyfile='meetingService\\certifs\\key.pem',
+        debug=True, allow_unsafe_werkzeug=True
      )
