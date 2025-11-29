@@ -10,7 +10,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 from modeles.role import ROLE
 from modeles.department import Department
-
+from namespace.GameNamespace import GameNamespace
+from namespace.MeetingNamespace import MeetingNamespace
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, Namespace
 import socketio
@@ -141,162 +142,9 @@ def create_MeetServer_connection(client_sid, namespace_instance, user_email=None
         print(f"❌ Failed to connect to meeting backend for client {client_sid}: {e}")
         return None
 
-
-# =================== GAME NAMESPACE ===================
-
-class GameNamespace(Namespace):
-    """Namespace for game-related WebSocket events"""
-    
-    def on_connect(self, auth=None):  # Fix: Add auth parameter
-        """Client connected to game namespace"""
-        client_sid = request.sid
-        print(f"✅ Game Client connected: {client_sid}")
-        
-        backend = create_GameServer_connection(client_sid, self)
-        if backend:
-            client_connections_game[client_sid] = backend
-        else:
-            self.emit('error', 'Failed to connect to game server', to=client_sid)
-    
-    def on_disconnect(self):
-        """Client disconnected from game namespace"""
-        client_sid = request.sid
-        print(f"❌ Game Client disconnected: {client_sid}")
-        
-        if client_sid in client_connections_game:
-            try:
-                client_connections_game[client_sid].disconnect()
-            except Exception as e:
-                print(f"Error disconnecting game backend: {e}")
-            del client_connections_game[client_sid]
-    
-    def on_createMatch(self):
-        """Forward createMatch to backend"""
-        client_sid = request.sid
-        print(f"Client {client_sid} -> Backend: createMatch")
-        
-        if client_sid in client_connections_game:
-            client_connections_game[client_sid].emit('createMatch')
-        else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
-    
-    def on_joinMatch(self, match_code):
-        """Forward joinMatch to backend"""
-        client_sid = request.sid
-        print(f"Client {client_sid} -> Backend: joinMatch {match_code}")
-        
-        if client_sid in client_connections_game:
-            client_connections_game[client_sid].emit('joinMatch', match_code)
-        else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
-    
-    def on_makeMove(self, data):
-        """Forward makeMove to backend"""
-        client_sid = request.sid
-        print(f"Client {client_sid} -> Backend: makeMove")
-        
-        if client_sid in client_connections_game:
-            client_connections_game[client_sid].emit('makeMove', data)
-        else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
-    
-    def on_restartGame(self, match_code):
-        """Forward restartGame to backend"""
-        client_sid = request.sid
-        print(f"Client {client_sid} -> Backend: restartGame {match_code}")
-        
-        if client_sid in client_connections_game:
-            client_connections_game[client_sid].emit('restartGame', match_code)
-        else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
-
-
-# =================== MEETING NAMESPACE ===================
-
-class MeetingNamespace(Namespace):
-    """Namespace for meeting/video conference WebSocket events"""
-    
-    def on_connect(self, auth=None):  # Fix: Add auth parameter
-        """Client connected to meeting namespace"""
-        client_sid = request.sid
-        user_email = request.args.get('user_email')
-        print(f"✅ Meeting Client connected: {client_sid} (email: {user_email})")
-        
-        backend = create_MeetServer_connection(client_sid, self, user_email)
-        if backend:
-            client_connections_meeting[client_sid] = {
-                'backend': backend,
-                'user_email': user_email
-            }
-        else:
-            self.emit('error', 'Failed to connect to meeting server', to=client_sid)
-    
-    def on_disconnect(self):
-        """Client disconnected from meeting namespace"""
-        client_sid = request.sid
-        print(f"❌ Meeting Client disconnected: {client_sid}")
-        
-        if client_sid in client_connections_meeting:
-            try:
-                client_connections_meeting[client_sid]['backend'].disconnect()
-            except Exception as e:
-                print(f"Error disconnecting meeting backend: {e}")
-            del client_connections_meeting[client_sid]
-    
-    def on_join(self, data):
-        """Forward join event to backend"""
-        client_sid = request.sid
-        print(f"Client {client_sid} -> Backend: join room {data.get('room')}")
-        
-        if client_sid in client_connections_meeting:
-            client_connections_meeting[client_sid]['backend'].emit('join', data)
-        else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
-    
-    def on_leave(self, data):
-        """Forward leave event to backend"""
-        client_sid = request.sid
-        print(f"Client {client_sid} -> Backend: leave room {data.get('room')}")
-        
-        if client_sid in client_connections_meeting:
-            client_connections_meeting[client_sid]['backend'].emit('leave', data)
-        else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
-    
-    def on_offer(self, data):
-        """Forward WebRTC offer to backend"""
-        client_sid = request.sid
-        print(f"Client {client_sid} -> Backend: offer to {data.get('targetId')}")
-        
-        if client_sid in client_connections_meeting:
-            client_connections_meeting[client_sid]['backend'].emit('offer', data)
-        else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
-    
-    def on_answer(self, data):
-        """Forward WebRTC answer to backend"""
-        client_sid = request.sid
-        print(f"Client {client_sid} -> Backend: answer to {data.get('targetId')}")
-        
-        if client_sid in client_connections_meeting:
-            client_connections_meeting[client_sid]['backend'].emit('answer', data)
-        else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
-    
-    def on_ice_candidate(self, data):
-        """Forward ICE candidate to backend"""
-        client_sid = request.sid
-        print(f"Client {client_sid} -> Backend: ice-candidate to {data.get('targetId')}")
-        
-        if client_sid in client_connections_meeting:
-            client_connections_meeting[client_sid]['backend'].emit('ice-candidate', data)
-        else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
-
-
 # Register namespaces
-socketio_app.on_namespace(GameNamespace('/game'))
-socketio_app.on_namespace(MeetingNamespace('/meeting'))
+socketio_app.on_namespace(GameNamespace('/game', socketio_app, Game_server))
+socketio_app.on_namespace(MeetingNamespace('/meeting', socketio_app, Meet_server))
 
 
 # =================== HTTP ENDPOINTS ===================

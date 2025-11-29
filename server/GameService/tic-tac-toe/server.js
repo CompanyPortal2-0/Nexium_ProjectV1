@@ -154,7 +154,7 @@ function calculateWinner(board) {
   return null;
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 7054;
 server.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`✅ Server running on http://192.168.100.190:${PORT}`);
 });

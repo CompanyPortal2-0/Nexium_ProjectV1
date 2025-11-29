@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import io from 'socket.io-client';
 
-const socket = io('http://192.168.100.183:7050');
+const socket = io('https://192.168.100.190:7050/game');
 
 function App() {
   const [gameState, setGameState] = useState(null);
