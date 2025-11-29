@@ -2,7 +2,7 @@
   "name": "client-offline",
   "version": "1.0.0",
   "dependencies": {
-    "socket.io-client": "^4.6.1",
-    "mediasoup-client": "^3.7.0"
+    "mediasoup-client": "^3.7.6",
+    "socket.io-client": "^4.6.1"
   }
 }
