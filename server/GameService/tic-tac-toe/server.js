@@ -4,7 +4,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import { createClient } from 'redis';
 
-dotenv.config(); // Load environment variables from .env file
+dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
@@ -21,54 +21,122 @@ const subClient = createClient();
 await pubClient.connect();
 await subClient.connect();
 
-// Subscribe to the Redis channel for game updates
-await subClient.subscribe('game-moves', (message) => {
-  gameState = JSON.parse(message);
-  io.emit('gameState', gameState);
-});
+// Store all active games: { matchCode: gameData }
+const games = new Map();
 
-// Define initial game state
-let gameState = {
-  board: Array(9).fill(null),
-  xIsNext: true,
-};
+// Generate a random 6-character match code
+function generateMatchCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
 
-// Function to reset the game
-function resetGame() {
-  gameState = {
+// Initialize a new game
+function createGame(matchCode) {
+  return {
     board: Array(9).fill(null),
     xIsNext: true,
+    players: { X: null, O: null }, // socket IDs
+    spectators: [],
+    winner: null,
   };
 }
 
-io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
-
-  // Send the current game state to the newly connected client
-  socket.emit('gameState', gameState);
-
-    // Handle player moves
-  socket.on('makeMove', (index) => {
-    // Prevent making a move if cell is already taken or game is over
-    if (gameState.board[index] || calculateWinner(gameState.board)) return;
-
-    // Update the board and switch turns
-    gameState.board[index] = gameState.xIsNext ? 'X' : 'O';
-    gameState.xIsNext = !gameState.xIsNext;
-
-    // Publish the updated game state to Redis
-    pubClient.publish('game-moves', JSON.stringify(gameState));
-    io.emit('gameState', gameState);
-  });
-
-  // Handle game restarts
-socket.on('restartGame', () => {
-  resetGame();
-  io.emit('gameState', gameState);
+// Subscribe to Redis for cross-server game updates
+await subClient.subscribe('game-updates', (message) => {
+  const { matchCode, gameState } = JSON.parse(message);
+  games.set(matchCode, gameState);
+  io.to(matchCode).emit('gameState', gameState);
 });
 
-socket.on('disconnect', () => {
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+
+  // Create a new match
+  socket.on('createMatch', () => {
+    const matchCode = generateMatchCode();
+    const game = createGame(matchCode);
+    game.players.X = socket.id;
+    games.set(matchCode, game);
+    
+    socket.join(matchCode);
+    socket.emit('matchCreated', { matchCode, role: 'X' });
+    socket.emit('gameState', game);
+  });
+
+  // Join an existing match
+  socket.on('joinMatch', (matchCode) => {
+    const game = games.get(matchCode);
+    
+    if (!game) {
+      socket.emit('error', 'Match not found');
+      return;
+    }
+
+    socket.join(matchCode);
+    let role = 'spectator';
+
+    // Assign player roles
+    if (!game.players.X) {
+      game.players.X = socket.id;
+      role = 'X';
+    } else if (!game.players.O) {
+      game.players.O = socket.id;
+      role = 'O';
+    } else {
+      game.spectators.push(socket.id);
+    }
+
+    socket.emit('matchJoined', { matchCode, role });
+    io.to(matchCode).emit('gameState', game);
+  });
+
+  // Handle player moves
+  socket.on('makeMove', ({ matchCode, index }) => {
+    const game = games.get(matchCode);
+    if (!game) return;
+
+    // Check if it's this player's turn
+    const currentPlayer = game.xIsNext ? 'X' : 'O';
+    if (game.players[currentPlayer] !== socket.id) return;
+
+    // Check if move is valid
+    if (game.board[index] || game.winner) return;
+
+    // Make the move
+    game.board[index] = currentPlayer;
+    game.xIsNext = !game.xIsNext;
+    game.winner = calculateWinner(game.board);
+
+    // Publish to Redis and emit to all clients in the room
+    pubClient.publish('game-updates', JSON.stringify({ matchCode, gameState: game }));
+    io.to(matchCode).emit('gameState', game);
+  });
+
+  // Restart game
+  socket.on('restartGame', (matchCode) => {
+    const game = games.get(matchCode);
+    if (!game) return;
+
+    // Only players can restart
+    if (game.players.X !== socket.id && game.players.O !== socket.id) return;
+
+    game.board = Array(9).fill(null);
+    game.xIsNext = true;
+    game.winner = null;
+
+    io.to(matchCode).emit('gameState', game);
+  });
+
+  socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
+    
+    // Remove player from all games
+    for (const [matchCode, game] of games.entries()) {
+      if (game.players.X === socket.id) game.players.X = null;
+      if (game.players.O === socket.id) game.players.O = null;
+      game.spectators = game.spectators.filter(id => id !== socket.id);
+      
+      io.to(matchCode).emit('gameState', game);
+    }
   });
 });
 
@@ -84,10 +152,6 @@ function calculateWinner(board) {
     }
   }
   return null;
-}
-
-function isBoardFull(board) {
-  return board.every((cell) => cell !== null);
 }
 
 const PORT = process.env.PORT || 3000;
