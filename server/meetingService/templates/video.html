@@ -211,10 +211,14 @@ const participantCountElement = document.getElementById('participantCount');
 
 const configuration = {
     iceServers: [
+        // Google STUN servers (free and reliable)
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-
-        // Add free TURN servers for better NAT traversal
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        
+        // Free TURN servers (better for NAT traversal)
         {
             urls: 'turn:openrelay.metered.ca:80',
             username: 'openrelayproject',
@@ -224,9 +228,18 @@ const configuration = {
             urls: 'turn:openrelay.metered.ca:443',
             username: 'openrelayproject',
             credential: 'openrelayproject'
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
         }
     ],
-    iceCandidatePoolSize: 10 // Increase pool size for better connectivity
+    iceCandidatePoolSize: 10,
+    // Add these for better stability
+    iceTransportPolicy: 'all', // Use both STUN and TURN
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require'
 };
 
 // Connect to Socket.IO server with reconnection logic
@@ -239,14 +252,18 @@ function connectSocket() {
 
     updateStatus('Connecting to signaling server...');
     
-    // Use your server URL here (HTTP or HTTPS)
-    socket = io.connect(SERVER, {
+    socket = io.connect(SERVER + '/meeting', {
         secure: true,
-        rejectUnauthorized: false,  // Accept self-signed certificates
+        rejectUnauthorized: false,
         reconnection: true,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: 10, // Increased from 5
         reconnectionDelay: 1000,
-        timeout: 10000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000, // Increased from 10000
+        // Add these for better stability
+        transports: ['websocket', 'polling'], // Fallback to polling if websocket fails
+        upgrade: true,
+        rememberUpgrade: true,
         query: {
             user_email: user_mail
         }
@@ -477,16 +494,20 @@ function init() {
 // Start local video stream
 async function startStream() {
     try {
-        // Request access to webcam and microphone
+        // Request access to webcam and microphone with optimized settings
         localStream = await navigator.mediaDevices.getUserMedia({
             video: {
-                width: { ideal: 640 },
-                height: { ideal: 480 },
-                frameRate: { ideal: 30 }
+                width: { ideal: 1280, max: 1920 },
+                height: { ideal: 720, max: 1080 },
+                frameRate: { ideal: 30, max: 30 },
+                facingMode: 'user'
             },
             audio: {
                 echoCancellation: true,
-                noiseSuppression: true
+                noiseSuppression: true,
+                autoGainControl: true,
+                sampleRate: 48000,
+                channelCount: 1
             }
         });
 
@@ -559,60 +580,57 @@ function joinRoom(roomIdParam, isRejoin = false) {
 function createPeerConnection(peerId) {
     console.log(`Creating peer connection for ${peerId}`);
 
-    // If connection already exists, close it first
     if (peerConnections[peerId] && peerConnections[peerId].connection) {
         console.log(`Closing existing connection for ${peerId}`);
-        try {
-            peerConnections[peerId].connection.close();
-        } catch (e) {
-            console.error("Error closing connection:", e);
-        }
+        peerConnections[peerId].connection.close();
     }
 
     try {
         const peerConnection = new RTCPeerConnection(configuration);
 
-        // Add local stream tracks to peer connection
+        // Add local stream tracks to the connection
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
+                console.log(`Added ${track.kind} track to peer connection for ${peerId}`);
             });
         }
 
-        // Set up event handlers for peer connection
-        peerConnection.onicecandidate = (event) => handleICECandidate(peerId, event);
-        peerConnection.ontrack = (event) => handleTrackEvent(peerId, event);
-        peerConnection.oniceconnectionstatechange = () => handleICEConnectionStateChange(peerId);
-
-        // Store the peer connection
+        // Store peer connection with metadata
         peerConnections[peerId] = {
             connection: peerConnection,
             iceCandidatesBuffer: [],
-            pendingOffer: null,
-            pendingAnswer: null,
-            connectionState: 'new'
+            isSettingRemoteDescription: false
         };
 
-        // Add event listener for connection state changes
+        // Set up event handlers
+        peerConnection.onicecandidate = (event) => handleICECandidate(peerId, event);
+        peerConnection.ontrack = (event) => handleTrackEvent(peerId, event);
+        peerConnection.oniceconnectionstatechange = () => handleICEConnectionStateChange(peerId);
+        
+        // Add connection state change handler for better debugging
         peerConnection.onconnectionstatechange = () => {
-            console.log(`Connection state changed for ${peerId}: ${peerConnection.connectionState}`);
-            peerConnections[peerId].connectionState = peerConnection.connectionState;
-
-            if (peerConnection.connectionState === 'connected') {
-                updateStatus(`Connected to peer ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
-            } else if (peerConnection.connectionState === 'failed') {
-                updateStatus(`Connection to peer ${peerUserEmails[peerId] || peerId.substring(0, 5)}... failed`);
-                // Try to reconnect
-                setTimeout(() => {
-                    recreatePeerConnection(peerId);
-                }, 2000);
+            console.log(`Connection state for ${peerId}: ${peerConnection.connectionState}`);
+            if (peerConnection.connectionState === 'failed') {
+                console.error(`Connection failed for ${peerId}, attempting to recreate...`);
+                recreatePeerConnection(peerId);
             }
         };
 
-        updateStatus(`Peer connection created for ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
+        // Add signaling state change handler
+        peerConnection.onsignalingstatechange = () => {
+            console.log(`Signaling state for ${peerId}: ${peerConnection.signalingState}`);
+        };
+
+        // Add ICE gathering state change handler
+        peerConnection.onicegatheringstatechange = () => {
+            console.log(`ICE gathering state for ${peerId}: ${peerConnection.iceGatheringState}`);
+        };
+
+        console.log(`✅ Peer connection created for ${peerId}`);
         return peerConnection;
     } catch (error) {
-        console.error(`Error creating peer connection: ${error}`);
+        console.error(`Error creating peer connection for ${peerId}:`, error);
         updateStatus(`Error creating connection: ${error.message}`);
         return null;
     }
@@ -827,7 +845,7 @@ function handleTrackEvent(peerId, event) {
     }
 }
 
-// Handle ICE connection state changes
+// Handle ICE connection state changes with retry logic
 function handleICEConnectionStateChange(peerId) {
     const peerData = peerConnections[peerId];
     if (!peerData || !peerData.connection) return;
@@ -836,29 +854,39 @@ function handleICEConnectionStateChange(peerId) {
     console.log(`ICE connection state change for ${peerId}: ${peerConnection.iceConnectionState}`);
 
     switch (peerConnection.iceConnectionState) {
-        case 'connected':
-            updateStatus(`ICE Connected to ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
+        case 'checking':
+            updateStatus(`Connecting to ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
             break;
-
-        case 'disconnected':
-            updateStatus(`ICE Disconnected from ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
-            // Wait a bit to see if it reconnects automatically
+        case 'connected':
+        case 'completed':
+            updateStatus(`Connected to ${peerUserEmails[peerId] || peerId.substring(0, 5)}`);
+            // Process buffered ICE candidates
+            processBufferedIceCandidates(peerId);
+            break;
+        case 'failed':
+            updateStatus(`Connection failed with ${peerUserEmails[peerId] || peerId.substring(0, 5)}`);
+            console.error(`ICE connection failed for ${peerId}, attempting restart...`);
+            // Attempt ICE restart
             setTimeout(() => {
-                if (peerConnections[peerId] &&
+                if (peerConnections[peerId] && peerConnections[peerId].connection) {
+                    recreatePeerConnection(peerId);
+                }
+            }, 2000);
+            break;
+        case 'disconnected':
+            updateStatus(`Disconnected from ${peerUserEmails[peerId] || peerId.substring(0, 5)}`);
+            // Wait a bit before attempting reconnection
+            setTimeout(() => {
+                if (peerConnections[peerId] && 
+                    peerConnections[peerId].connection &&
                     peerConnections[peerId].connection.iceConnectionState === 'disconnected') {
+                    console.log(`Attempting to reconnect to ${peerId}...`);
                     recreatePeerConnection(peerId);
                 }
             }, 5000);
             break;
-
-        case 'failed':
-            updateStatus(`ICE Connection failed with ${peerUserEmails[peerId] || peerId.substring(0, 5)}...`);
-            // Recreate the connection
-            recreatePeerConnection(peerId);
-            break;
-
         case 'closed':
-            removePeerConnection(peerId);
+            updateStatus(`Connection closed with ${peerUserEmails[peerId] || peerId.substring(0, 5)}`);
             break;
     }
 }

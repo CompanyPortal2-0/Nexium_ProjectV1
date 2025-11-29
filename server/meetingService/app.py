@@ -96,7 +96,7 @@ def room(meet_id, user_email):
     if userMail not in participants:
         return "You are not a member of this meet", 403
 
-    return render_template("video.html", meet_id=meet_id, user_mail=userMail, server="https://192.168.100.190:5001")
+    return render_template("video.html", meet_id=meet_id, user_mail=userMail, server="https://192.168.100.190:7050") #hadi badelha dynamic
 
 @socketio.on('connect')
 def handle_connect():
