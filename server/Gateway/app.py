@@ -367,5 +367,150 @@ def room(meet_id, user_email):
         return "Gateway error", 500
 
 
+# =================== NEW MEETING CRUD ENDPOINTS ===================
+
+@app.route('/meetings', methods=['GET'])
+@jwt_required()
+def get_all_meetings():
+    """Forward get all meetings request to backend"""
+    try:
+        user_email = request.args.get('user_email')
+        is_active = request.args.get('is_active')
+        
+        params = {}
+        if user_email:
+            params['user_email'] = user_email
+        if is_active:
+            params['is_active'] = is_active
+        
+        response = requests.get(
+            f"{Meet_server}/meetings",
+            params=params,
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        print(f"Error forwarding get meetings: {e}")
+        return jsonify({"error": "Gateway error"}), 500
+
+
+@app.route('/meetings/<meeting_id>', methods=['GET'])
+@jwt_required()
+def get_meeting(meeting_id):
+    """Forward get meeting by ID request to backend"""
+    try:
+        response = requests.get(
+            f"{Meet_server}/meetings/{meeting_id}",
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        print(f"Error forwarding get meeting: {e}")
+        return jsonify({"error": "Gateway error"}), 500
+
+
+@app.route('/meetings/<meeting_id>', methods=['PUT'])
+@jwt_required()
+def update_meeting(meeting_id):
+    """Forward update meeting request to backend"""
+    try:
+        response = requests.put(
+            f"{Meet_server}/meetings/{meeting_id}",
+            json=request.json,
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        print(f"Error forwarding update meeting: {e}")
+        return jsonify({"error": "Gateway error"}), 500
+
+
+@app.route('/meetings/<meeting_id>', methods=['DELETE'])
+@jwt_required()
+def delete_meeting(meeting_id):
+    """Forward delete meeting request to backend"""
+    try:
+        response = requests.delete(
+            f"{Meet_server}/meetings/{meeting_id}",
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        print(f"Error forwarding delete meeting: {e}")
+        return jsonify({"error": "Gateway error"}), 500
+
+
+@app.route('/meetings/<meeting_id>/start', methods=['POST'])
+@jwt_required()
+def start_meeting(meeting_id):
+    """Forward start meeting request to backend"""
+    try:
+        response = requests.post(
+            f"{Meet_server}/meetings/{meeting_id}/start",
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        print(f"Error forwarding start meeting: {e}")
+        return jsonify({"error": "Gateway error"}), 500
+
+
+@app.route('/meetings/<meeting_id>/end', methods=['POST'])
+@jwt_required()
+def end_meeting(meeting_id):
+    """Forward end meeting request to backend"""
+    try:
+        response = requests.post(
+            f"{Meet_server}/meetings/{meeting_id}/end",
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        print(f"Error forwarding end meeting: {e}")
+        return jsonify({"error": "Gateway error"}), 500
+
+
+@app.route('/meetings/<meeting_id>/log', methods=['POST'])
+@jwt_required()
+def add_meeting_log(meeting_id):
+    """Forward add log entry request to backend"""
+    try:
+        response = requests.post(
+            f"{Meet_server}/meetings/{meeting_id}/log",
+            json=request.json,
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        print(f"Error forwarding add log entry: {e}")
+        return jsonify({"error": "Gateway error"}), 500
+
+
+@app.route('/meetings/<meeting_id>/log', methods=['GET'])
+@jwt_required()
+def get_meeting_log(meeting_id):
+    """Forward get meeting log request to backend"""
+    try:
+        download = request.args.get('download')
+        params = {}
+        if download:
+            params['download'] = download
+        
+        response = requests.get(
+            f"{Meet_server}/meetings/{meeting_id}/log",
+            params=params,
+            verify=False
+        )
+        
+        if download and response.status_code == 200:
+            # Forward the file download response
+            return response.content, response.status_code, response.headers.items()
+        else:
+            return jsonify(response.json()), response.status_code
+    except Exception as e:
+        print(f"Error forwarding get meeting log: {e}")
+        return jsonify({"error": "Gateway error"}), 500
+
+
 if __name__ == '__main__':
     socketio_app.run(app, host='0.0.0.0', port=7050, debug=True, allow_unsafe_werkzeug=True,ssl_context=('meetingService\\certifs\\cert.pem', 'meetingService\\certifs\\key.pem'))
