@@ -33,8 +33,8 @@ def signUp():
     id = result.get("id")
     user_data = {
             "email": email,
-            "password": "temp_password_not_us11447DDDD@@@ed",  
-            "role": "EMPLOYER",
+            "password": Password,  
+            "role": "employee",
             "first_name": firstName,
             "last_name": lastName,
             "address": address,
@@ -42,7 +42,7 @@ def signUp():
             "userID": id,  
             "date_of_birth": DateOfBirth
         }
-    HEADERS = {"X-Internal-Key": "INTERNAL_API_KEY"}
+    HEADERS = {"X-Internal-Key": "nexus-internal-secret-key-123"}
 
     try:
         response_from_saving_service = requests.post(
@@ -57,12 +57,12 @@ def signUp():
     if response_from_saving_service.status_code == 200 or response_from_saving_service.status_code == 201 : 
         print("from app :")
     
-        response = json.dumps({
+        #response = json.dumps()
+        if(result is not None) :
+            return jsonify({
             "Token":result.get("Token"),
             "id": result.get("id")
-        })
-        if(result is not None) :
-            return jsonify(response) , 200
+        }) , 200
         else :
             return jsonify({"error":"error in auth_helper.CreateUser(email,Password)"}) , 500
     else:

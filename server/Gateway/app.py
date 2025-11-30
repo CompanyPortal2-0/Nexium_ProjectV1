@@ -38,7 +38,6 @@ app.secret_key = 'your-super-secret-jwt-token-with-at-least-32-characters-long'
 
 jwt = JWTManager(app)
 
-
 # =================== HELPER FUNCTIONS ===================
 
 def create_GameServer_connection(client_sid, namespace_instance):
@@ -258,7 +257,13 @@ def signUp():
     })
 
     if response_from_auth_service.status_code == 200:
-            return jsonify({"AuthToken": {response_from_auth_service.json().get("Token")}}), 200
+            auth_data = response_from_auth_service.json()
+        
+        # Fix: Remove the curly braces around .get("Token")
+            return jsonify({
+            "AuthToken": auth_data.get("Token"),
+            "id": auth_data.get("id")
+        }), 200
     else:
         return jsonify({"error": "we get an error from auth service"}), 500
 
@@ -268,17 +273,17 @@ def signUp():
 def getCode():
     """Gateway endpoint - forwards request to UserServices"""
     try:
-        current_user_email = get_jwt_identity()
+        #current_user_email = get_jwt_identity()#hadi twali ta5edhha ml authservice
         data = request.get_json()
         manager_email = data.get('managermail')
         
         if not manager_email:
             return jsonify({"Text": "Manager email is required"}), 400
-        
+        print ("lhan labes")
         response = requests.post(
             f'http://{UserServices}/getCodeForManager',
             json={
-                "current_user_email": current_user_email,
+    #            "current_user_email": current_user_email,
                 "manager_email": manager_email
             },
             timeout=10
@@ -294,9 +299,12 @@ def getCode():
 
 # Meeting endpoints
 @app.route('/create-meet', methods=['POST'])
+@jwt_required()
 def create_meet():
+    print(jwt)
     """Forward create-meet request to backend"""
     try:
+        print(get_jwt_identity())
         print("Forwarding create-meet request to backend")
         response = requests.post(
             f"{Meet_server}/create-meet",

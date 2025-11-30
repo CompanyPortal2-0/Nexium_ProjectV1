@@ -10,7 +10,7 @@ from userHelper import userHelper
 from modeles.role import ROLE
 
 load_dotenv()
-HEADERS = {"X-Internal-Key": "INTERNAL_API_KEY"} #INTERNAL_API_KEY badelha fe .env
+HEADERS = {"X-Internal-Key": "nexus-internal-secret-key-123"}
 app = Flask(__name__)
 SAVING_server = os.getenv('SAVING_server')
 
@@ -73,21 +73,21 @@ def getCode():
     """
     try:
         data = request.get_json()
-        current_user_email = data.get('current_user_email')
+        #current_user_email = data.get('current_user_email')
         manager_email = data.get('manager_email')
         
-        if not current_user_email or not manager_email:
-            return jsonify({"Text": "Missing required fields"}), 400
-        
-        # 1. Get current user and verify they are authorized
-        current_user = userHelper.getUserByEmail(current_user_email)
-        if current_user is None:
-            return jsonify({"Text": "Current user not found"}), 404
-        
-        # Check if current user is Manager (adjust role as needed)
-        if current_user.Role not in ROLE.MANAGER.value:
-            return jsonify({"Text": "not authorized"}), 401
-        
+        #if not current_user_email or not manager_email:
+        #    return jsonify({"Text": "Missing required fields"}), 400
+        #
+        ## 1. Get current user and verify they are authorized
+        #current_user = userHelper.getUserByEmail(current_user_email)
+        #if current_user is None:
+        #    return jsonify({"Text": "Current user not found"}), 404
+        #
+        ## Check if current user is Manager (adjust role as needed)
+        #if current_user.Role not in ROLE.MANAGER.value:
+        #    return jsonify({"Text": "not authorized"}), 401
+        #
         # 2. Get manager user
         manager_user = userHelper.getUserByEmail(manager_email)
         if manager_user is None:

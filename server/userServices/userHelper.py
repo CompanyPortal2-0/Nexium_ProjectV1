@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class userHelper:
-    # Base URL for saving server
-    SAVING_SERVER_URL = os.getenv('SAVING_server', 'http://127.0.0.1:5001')
+    SAVING_SERVER_URL = os.getenv('SAVING_server')
+    HEADERS = {"X-Internal-Key": "nexus-internal-secret-key-123"}
     
     @staticmethod
     def getUserByEmail(email: str) -> Optional[User]:
@@ -40,8 +40,10 @@ class userHelper:
         """
         try:
             # Get all users from Saving Server
+            
             response = requests.get(
                 f"{userHelper.SAVING_SERVER_URL}/users/",
+                headers=userHelper.HEADERS,
                 timeout=10
             )
             
