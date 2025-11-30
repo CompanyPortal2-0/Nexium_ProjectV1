@@ -22,6 +22,9 @@ signalingServer = os.getenv("SIGNALING_SERVER")
 
 @app.route("/create-meet", methods=["POST"])
 def create_meet():
+    """
+    Create a new meeting and store it in SAVING_SERVER
+    """
     try:
         meet_data = request.json
         
@@ -31,10 +34,14 @@ def create_meet():
         description = meet_data.get("description")
         invited_employees = meet_data.get("invitedEmployeesList", [])
         password = meet_data.get("password", "")
+        created_by = meet_data.get("created_by", "")
         
         # Validate required fields
         if not title or not obj or not description:
             return jsonify({"error": "Title, object, and description are required"}), 400
+        
+        if not created_by:
+            return jsonify({"error": "created_by is required"}), 400
         
         # Create new meeting
         new_meeting = Meeting(
@@ -42,23 +49,31 @@ def create_meet():
             obj=obj,
             description=description,
             invited_employees=invited_employees,
-            password=password
+            password=password,
+            created_by=created_by
         )
         
-        # Add meeting to helper
-        MeetHelper.addMeeting(new_meeting)
+        # Save meeting to SAVING_SERVER via Helper
+        created_meeting = MeetHelper.createMeeting(new_meeting)
+        
+        if not created_meeting:
+            return jsonify({"error": "Failed to create meeting in SAVING_SERVER"}), 500
         
         # Return meeting details
         return jsonify({
             "success": True,
             "meeting": {
-                "id": new_meeting.getID(),
-                "title": new_meeting.getTitle(),
-                "object": new_meeting.getObject(),
-                "description": new_meeting.getDescription(),
-                "invitationLink": new_meeting.getInvitationLink(),
-                "createdAt": new_meeting.getCreatedAt(),
-                "invitedEmployees": new_meeting.getInvitedEmployeesList()
+                "id": created_meeting.getDatabaseID(),
+                "meeting_id": created_meeting.getID(),
+                "title": created_meeting.getTitle(),
+                "object": created_meeting.getObject(),
+                "description": created_meeting.getDescription(),
+                "invitationLink": created_meeting.getInvitationLink(),
+                "log_path": created_meeting.getLogPath(),
+                "createdAt": created_meeting.getCreatedAt(),
+                "created_by": created_meeting.getCreatedBy(),
+                "invitedEmployees": created_meeting.getInvitedEmployeesList(),
+                "is_active": created_meeting.getIsActive()
             }
         }), 201
         
@@ -68,23 +83,40 @@ def create_meet():
 
 @app.route("/join-meet", methods=["POST"])
 def join_meet():
-    print("d5al")
-    meet_data = request.json
-    meet_id = meet_data.get("meet_id")
-    password = meet_data.get("password")
-    user_email = meet_data.get("user_email")
-   
-    if not(MeetHelper.verifyMeetingPassword(meet_id, password)):
-        return jsonify({"error": "Invalid credentials"}), 401
+    """
+    Join a meeting - verify credentials and add user to participants
+    """
+    try:
+        meet_data = request.json
+        meet_id = meet_data.get("meet_id")
+        password = meet_data.get("password")
+        user_email = meet_data.get("user_email")
+        
+        if not meet_id or not user_email:
+            return jsonify({"error": "meet_id and user_email are required"}), 400
+        
+        # Verify meeting password
+        if not MeetHelper.verifyMeetingPassword(meet_id, password):
+            return jsonify({"error": "Invalid credentials"}), 401
 
-    MeetHelper.addUserToMeeting(meet_id, user_email)
-    return jsonify({
-        "success": True,
-        "redirectUrl": f"https://192.168.100.183:7053/room/{meet_id}/{user_email}"
-    }), 200
+        # Add user to meeting and log the event
+        MeetHelper.addUserToMeeting(meet_id, user_email)
+        MeetHelper.addLogEntry(meet_id, f"User {user_email} joined the meeting")
+        
+        return jsonify({
+            "success": True,
+            "redirectUrl": f"https://192.168.100.183:7053/room/{meet_id}/{user_email}"
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error joining meeting: {str(e)}")
+        return jsonify({"error": "Failed to join meeting"}), 500
 
 @app.route("/room/<meet_id>/<user_email>")
 def room(meet_id, user_email):
+    """
+    Render the meeting room page
+    """
     userMail = user_email
     meet = MeetHelper.getMeetingByID(meet_id)
     
@@ -97,6 +129,220 @@ def room(meet_id, user_email):
         return "You are not a member of this meet", 403
 
     return render_template("video.html", meet_id=meet_id, user_mail=userMail, server="https://192.168.100.190:7050") #hadi badelha dynamic
+
+
+# =================== NEW MEETING API ENDPOINTS ===================
+
+@app.route("/meetings", methods=["GET"])
+def get_all_meetings():
+    """
+    Get all meetings with optional filters
+    Query params: user_email, is_active
+    """
+    try:
+        user_email = request.args.get('user_email')
+        is_active = request.args.get('is_active')
+        
+        # Convert is_active to boolean if provided
+        is_active_bool = None
+        if is_active:
+            is_active_bool = is_active.lower() == 'true'
+        
+        meetings = MeetHelper.getAllMeetings(user_email, is_active_bool)
+        
+        # Format response
+        meetings_data = [{
+            "id": m.getDatabaseID(),
+            "meeting_id": m.getID(),
+            "title": m.getTitle(),
+            "invitation_link": m.getInvitationLink(),
+            "created_by": m.getCreatedBy(),
+            "created_at": m.getCreatedAt(),
+            "is_active": m.getIsActive(),
+            "has_password": bool(m.getPassword())
+        } for m in meetings]
+        
+        return jsonify({"data": meetings_data}), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting meetings: {str(e)}")
+        return jsonify({"error": "Failed to get meetings"}), 500
+
+
+@app.route("/meetings/<meeting_id>", methods=["GET"])
+def get_meeting(meeting_id):
+    """
+    Get specific meeting by ID
+    """
+    try:
+        meeting = MeetHelper.getMeetingByID(meeting_id)
+        
+        if not meeting:
+            return jsonify({"error": "Meeting not found"}), 404
+        
+        return jsonify({
+            "id": meeting.getDatabaseID(),
+            "meeting_id": meeting.getID(),
+            "title": meeting.getTitle(),
+            "object": meeting.getObject(),
+            "description": meeting.getDescription(),
+            "log_path": meeting.getLogPath(),
+            "invited_employees_list": meeting.getInvitedEmployeesList(),
+            "created_by": meeting.getCreatedBy(),
+            "created_at": meeting.getCreatedAt(),
+            "is_active": meeting.getIsActive(),
+            "started_at": meeting.getStartedAt(),
+            "ended_at": meeting.getEndedAt()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting meeting: {str(e)}")
+        return jsonify({"error": "Failed to get meeting"}), 500
+
+
+@app.route("/meetings/<meeting_id>", methods=["PUT"])
+def update_meeting(meeting_id):
+    """
+    Update meeting details
+    """
+    try:
+        updates = request.json
+        
+        if not updates:
+            return jsonify({"error": "No updates provided"}), 400
+        
+        success = MeetHelper.updateMeeting(meeting_id, updates)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "meeting_id": meeting_id,
+                "message": "Meeting updated successfully"
+            }), 200
+        else:
+            return jsonify({"error": "Failed to update meeting"}), 500
+            
+    except Exception as e:
+        logger.error(f"Error updating meeting: {str(e)}")
+        return jsonify({"error": "Failed to update meeting"}), 500
+
+
+@app.route("/meetings/<meeting_id>", methods=["DELETE"])
+def delete_meeting(meeting_id):
+    """
+    Delete (soft delete) a meeting
+    """
+    try:
+        success = MeetHelper.deleteMeeting(meeting_id)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Meeting deleted successfully"
+            }), 200
+        else:
+            return jsonify({"error": "Failed to delete meeting"}), 500
+            
+    except Exception as e:
+        logger.error(f"Error deleting meeting: {str(e)}")
+        return jsonify({"error": "Failed to delete meeting"}), 500
+
+
+@app.route("/meetings/<meeting_id>/start", methods=["POST"])
+def start_meeting(meeting_id):
+    """
+    Mark meeting as started and log the event
+    """
+    try:
+        success = MeetHelper.startMeeting(meeting_id)
+        
+        if success:
+            MeetHelper.addLogEntry(meeting_id, "Meeting started")
+            return jsonify({
+                "success": True,
+                "meeting_id": meeting_id,
+                "message": "Meeting started"
+            }), 200
+        else:
+            return jsonify({"error": "Failed to start meeting"}), 500
+            
+    except Exception as e:
+        logger.error(f"Error starting meeting: {str(e)}")
+        return jsonify({"error": "Failed to start meeting"}), 500
+
+
+@app.route("/meetings/<meeting_id>/end", methods=["POST"])
+def end_meeting(meeting_id):
+    """
+    Mark meeting as ended and log the event
+    """
+    try:
+        success = MeetHelper.endMeeting(meeting_id)
+        
+        if success:
+            MeetHelper.addLogEntry(meeting_id, "Meeting ended")
+            return jsonify({
+                "success": True,
+                "meeting_id": meeting_id,
+                "message": "Meeting ended"
+            }), 200
+        else:
+            return jsonify({"error": "Failed to end meeting"}), 500
+            
+    except Exception as e:
+        logger.error(f"Error ending meeting: {str(e)}")
+        return jsonify({"error": "Failed to end meeting"}), 500
+
+
+@app.route("/meetings/<meeting_id>/log", methods=["POST"])
+def add_meeting_log(meeting_id):
+    """
+    Add a log entry to the meeting log
+    """
+    try:
+        data = request.json
+        log_entry = data.get("log_entry")
+        
+        if not log_entry:
+            return jsonify({"error": "log_entry is required"}), 400
+        
+        success = MeetHelper.addLogEntry(meeting_id, log_entry)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Log entry added"
+            }), 200
+        else:
+            return jsonify({"error": "Failed to add log entry"}), 500
+            
+    except Exception as e:
+        logger.error(f"Error adding log entry: {str(e)}")
+        return jsonify({"error": "Failed to add log entry"}), 500
+
+
+@app.route("/meetings/<meeting_id>/log", methods=["GET"])
+def get_meeting_log(meeting_id):
+    """
+    Get meeting log content
+    """
+    try:
+        log_content = MeetHelper.getMeetingLog(meeting_id)
+        
+        if log_content is not None:
+            return jsonify({
+                "meeting_id": meeting_id,
+                "log_content": log_content
+            }), 200
+        else:
+            return jsonify({"error": "Failed to get log"}), 500
+            
+    except Exception as e:
+        logger.error(f"Error getting log: {str(e)}")
+        return jsonify({"error": "Failed to get log"}), 500
+
+
+# =================== SOCKETIO EVENTS ===================
 
 @socketio.on('connect')
 def handle_connect():
@@ -148,6 +394,10 @@ def handle_join(data):
         'peerId': user_id,
         'user_email': user_email
     }, room=room_id, skip_sid=user_id)
+    
+    # Log the join event
+    if user_email:
+        MeetHelper.addLogEntry(room_id, f"User {user_email} joined the room")
 
 @socketio.on('leave')
 def handle_leave(data):
@@ -158,11 +408,17 @@ def handle_leave(data):
 
     # Remove user from room
     if room_id in rooms and user_id in rooms[room_id]:
+        user_email = rooms[room_id][user_id].get('user_email')
+        
         leave_room(room_id)
         del rooms[room_id][user_id]
 
         # Notify others that peer left
         emit('peer-disconnected', {'peerId': user_id}, room=room_id)
+
+        # Log the leave event
+        if user_email:
+            MeetHelper.addLogEntry(room_id, f"User {user_email} left the room")
 
         # Delete room if empty
         if len(rooms[room_id]) == 0:
