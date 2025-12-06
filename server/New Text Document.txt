@@ -1,4 +1,0 @@
--backlog 
--use case global 
--coseption (class / sequence ...)
--cretique de l'existant 

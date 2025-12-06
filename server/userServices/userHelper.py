@@ -1,6 +1,10 @@
+import secrets
+import string
+from flask import jsonify
 import requests
 import logging
 import os
+import json
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 
@@ -113,3 +117,149 @@ class userHelper:
         
         return user
     
+
+    @staticmethod
+    def generateCode():
+        return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+
+    @staticmethod
+    def saveIntoSavingServer(data,args):
+        try:
+            save_operations = {
+                "managerCode": userHelper._save_manager_code,
+                "becameManagerCode": userHelper._save_became_manager_code
+                # Add more operations here as needed
+                
+            }
+            
+            # Get the appropriate save function
+            save_function = save_operations.get(args)
+            
+            if save_function is None:
+                logger.error(f"❌ Unknown operation type: {args}")
+                return False, {"error": f"Unknown operation: {args}"}, 400
+            
+            # Execute the save operation
+            return save_function(data)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in saveIntoSavingServer: {e}")
+            return False, {"error": str(e)}, 500
+
+    @staticmethod
+    def _save_manager_code(data):
+        
+        try:
+           
+            # Prepare payload
+            payload = {
+                "manager_id": data.get("manager_id"),
+                "code": data.get("code"),
+                "max_uses": data.get("max_uses", 1)  # Default to 1 if not provided
+            }
+            
+            # Send request to Saving Server
+            response = requests.post(
+                f"{userHelper.SAVING_SERVER_URL}/invites/manager",
+                json=payload,
+                headers=userHelper.HEADERS,
+                timeout=10
+            )
+            
+            # Check response
+            if response.status_code in [200, 201]:
+                logger.info(f"✅ Manager code saved successfully: {data.get('code')}")
+                return True, response.json() if response.text else {"success": True}, response.status_code
+            else:
+                logger.error(f"❌ Failed to save manager code: {response.status_code}")
+                return False, {"error": "Failed to save code to database"}, response.status_code
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"❌ Network error saving manager code: {e}")
+            return False, {"error": f"Database communication error: {str(e)}"}, 503
+        except Exception as e:
+            logger.error(f"❌ Error saving manager code: {e}")
+            return False, {"error": str(e)}, 500
+
+    @staticmethod
+    def _save_became_manager_code(data):
+        
+        try:
+            
+            # Prepare payload
+            payload = {
+                "hrid": data.get("hrid"),
+                "code": data.get("code"),
+                "max_uses": data.get("max_uses", 1)  # Default to 1 if not provided
+            }
+            
+            # Send request to Saving Server
+            response = requests.post(
+                f"{userHelper.SAVING_SERVER_URL}/manager_codes/becameManagerCode",
+                json=payload,
+                headers=userHelper.HEADERS,
+                timeout=10
+            )
+            
+            # Check response
+            if response.status_code in [200, 201]:
+                logger.info(f"✅ Manager code saved successfully: {data.get('code')}")
+                return True, response.json() if response.text else {"success": True}, response.status_code
+            else:
+                logger.error(f"❌ Failed to save manager code: {response.status_code}")
+                return False, {"error": "Failed to save code to database"}, response.status_code
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"❌ Network error saving manager code: {e}")
+            return False, {"error": f"Database communication error: {str(e)}"}, 503
+        except Exception as e:
+            logger.error(f"❌ Error saving manager code: {e}")
+            return False, {"error": str(e)}, 500
+    
+    @staticmethod
+    def make_employee_manager(code,userMail):
+        if(userHelper.verify_became_manager_code(code)):
+            employee = userHelper.get_user_by_email_from_SavingServer(userMail)
+            employee.setRole(ROLE.MANAGER)
+            
+            userHelper.update_user(employee.getId(),employee.to_dict())
+            return "done"
+        else :
+            return "invalid code"
+
+
+
+    @staticmethod
+    def update_user(user_id, user_data):
+        try:
+            response = requests.put(
+                f"{userHelper.SAVING_SERVER_URL}/users/{user_id}",
+                json=user_data,
+                headers=userHelper.HEADERS,
+                timeout=10
+            )
+            
+            if response.status_code in [200, 204]:
+                return True
+            return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error updating user: {e}")
+            return False
+    @staticmethod
+    def verify_became_manager_code(code):
+        try:
+            response = requests.get(
+                f"{userHelper.SAVING_SERVER_URL}/manager_codes/becameManagerCode/{code}",
+                headers=userHelper.HEADERS,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("success", False)
+            return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error verifying became manager code: {e}")
+            return False

@@ -75,11 +75,26 @@ def login():
     data = request.get_json()
     email = data.get('email')
     Password = data.get('password')
-    result = json.loads(auth_helper.login(email,Password))
-    if(result is not None) :
-        return jsonify({"Token":result.get("Token")}) , 200
-    else :
-        return jsonify({"error":"error in auth_helper.CreateUser(email,Password)"}) , 500
+    
+    # Get result from auth helper
+    login_result = auth_helper.login(email, Password)
+    
+    # Check if login_result is None (failed)
+    if login_result is None:
+        return jsonify({"error": "Login failed. Invalid credentials or service error."}), 401
+    
+    # Parse the JSON result
+    try:
+        result = json.loads(login_result)
+        return jsonify({
+            "Token": result.get("Token"),
+            "firstname": result.get("firstname"),
+            "lastname": result.get("lastname"),
+            "role": result.get("role")
+        }), 200
+    except Exception as e:
+        print(f"Error parsing login result: {e}")
+        return jsonify({"error": "Error processing login response"}), 500
 
 
 if __name__ == '__main__':

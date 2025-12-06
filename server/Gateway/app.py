@@ -262,7 +262,10 @@ def signUp():
         # Fix: Remove the curly braces around .get("Token")
             return jsonify({
             "AuthToken": auth_data.get("Token"),
-            "id": auth_data.get("id")
+            "id": auth_data.get("id"),
+            "firstname":firstName,
+            "lastname":lastName,
+            "role":"employee"
         }), 200
     else:
         return jsonify({"error": "we get an error from auth service"}), 500
@@ -365,6 +368,34 @@ def room(meet_id, user_email):
     except Exception as e:
         print(f"Error forwarding room request: {e}")
         return "Gateway error", 500
+
+# user service 
+@app.route('/becamemanager', methods=['POST'])
+@jwt_required()
+def becameManager():
+    userMail = get_jwt_identity()
+    print("user to became manager : ",userMail)
+    code = (request.get_json()).get("code")
+    response = requests.post(
+        f"http://{UserServices}/becameManger",
+        json={"code": code, "userMail": userMail}
+    )
+    print("el response : ",response.json())
+    return response.json(), response.status_code
+    
+@app.route('/generateBecameManagerCode', methods=['GET'])
+def generate_became_manager_code():
+    try:
+        data = request.get_json()
+        response = requests.get(
+            f'http://{UserServices}/generateBecameManagerCode',
+            json=data,
+            timeout=10
+        )
+        return response.json(), response.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 # =================== NEW MEETING CRUD ENDPOINTS ===================

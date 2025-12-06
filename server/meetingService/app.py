@@ -378,14 +378,17 @@ def handle_join(data):
     join_room(room_id)
     rooms[room_id][user_id] = {'user_email': user_email, 'joined': True}
 
-    # Get peer info with emails
+    # Get peer info with emails (excluding current user)
     peer_info = [{'id': peer_id, 'user_email': peer_data.get('user_email')} 
                  for peer_id, peer_data in rooms[room_id].items() if peer_id != user_id]
+
+    # Get list of peer IDs (excluding current user)
+    peer_ids = [peer_id for peer_id in rooms[room_id].keys() if peer_id != user_id]
 
     # Confirm room joined
     emit('room-joined', {
         'room': room_id,
-        'peers': list(rooms[room_id].keys()),
+        'peers': peer_ids,
         'peerInfo': peer_info
     })
 

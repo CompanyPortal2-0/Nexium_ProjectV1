@@ -101,5 +101,5 @@ class User:
             Address=data.get('Address'),
             EmployeesList=data.get('EmployeesList', []),
             Role=data.get('Role', ROLE.EMPLOYER),
-            Department=data.get('Department', DEPARTMENT.IT)
+            Department=data.get('Department', "DEPARTMENT.IT")
         )
