@@ -40,6 +40,35 @@ jwt = JWTManager(app)
 
 # =================== HELPER FUNCTIONS ===================
 
+def get_user_email_from_jwt_identity(user_id):
+    """
+    Get user email from auth service using the JWT identity (user ID).
+    This function is used whenever we need to resolve the user email from the JWT token.
+    
+    Args:
+        user_id: The user ID extracted from JWT token using get_jwt_identity()
+    
+    Returns:
+        str: User email if found, None otherwise
+    """
+    try:
+        response = requests.get(
+            f'http://{AUTH_server}/user/{user_id}/email',
+            timeout=10
+        )
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("email")
+        else:
+            print(f"Failed to get user email: {response.status_code}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error getting user email from auth service: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error getting user email: {e}")
+        return None
+
 def create_GameServer_connection(client_sid, namespace_instance):
     """Create a dedicated backend connection for a game client"""
     backend = socketio.Client(logger=False, engineio_logger=False)
@@ -271,15 +300,15 @@ def signUp():
         return jsonify({"error": "we get an error from auth service"}), 500
 
 
-@app.route('/getCodeForManager', methods=['POST'])
+@app.route('/getCodeForManager', methods=['GET'])
 @jwt_required()
 def getCode():
     """Gateway endpoint - forwards request to UserServices"""
     try:
         #current_user_email = get_jwt_identity()#hadi twali ta5edhha ml authservice
-        data = request.get_json()
-        manager_email = data.get('managermail')
         
+        manager_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        print(manager_email)
         if not manager_email:
             return jsonify({"Text": "Manager email is required"}), 400
         print ("lhan labes")
@@ -298,6 +327,77 @@ def getCode():
         return jsonify({"Text": f"Service communication error: {str(e)}"}), 503
     except Exception as e:
         return jsonify({"Text": f"Internal error: {str(e)}"}), 500
+
+
+# Teammates endpoints
+@app.route('/teammates', methods=['GET'])
+@jwt_required()
+def get_teammates():
+    """
+    Gateway endpoint - Get teammates for the currently logged-in user.
+    Uses JWT identity to determine the user's email.
+    
+    Query Parameters:
+        - include_details (bool): If true, returns full user objects instead of just emails
+        - include_manager (bool): If true, includes manager information in response
+    """
+    try:
+        # Get current user's email from JWT
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+        
+        # Get query parameters
+        include_details = request.args.get('include_details', 'true')
+        include_manager = request.args.get('include_manager', 'true')
+        
+        # Forward request to UserServices
+        response = requests.get(
+            f'http://{UserServices}/users/{current_user_email}/teammates',
+            params={
+                'include_details': include_details,
+                'include_manager': include_manager
+            },
+            timeout=10
+        )
+        
+        return jsonify(response.json()), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/team', methods=['GET'])
+@jwt_required()
+def get_full_team():
+    """
+    Gateway endpoint - Get full team information for the currently logged-in user.
+    Uses JWT identity to determine the user's email.
+    
+    Returns full team info including the employee, their manager, and all teammates with details.
+    """
+    try:
+        # Get current user's email from JWT
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+        
+        # Forward request to UserServices
+        response = requests.get(
+            f'http://{UserServices}/users/{current_user_email}/team',
+            timeout=10
+        )
+        
+        return jsonify(response.json()), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
 
 
 # Meeting endpoints
@@ -373,14 +473,19 @@ def room(meet_id, user_email):
 @app.route('/becamemanager', methods=['POST'])
 @jwt_required()
 def becameManager():
-    userMail = get_jwt_identity()
-    print("user to became manager : ",userMail)
+    user_id = get_jwt_identity()
+    userMail = get_user_email_from_jwt_identity(user_id)
+    
+    if userMail is None:
+        return jsonify({"error": "Could not resolve user identity"}), 401
+    
+    print("user to became manager : ", userMail)
     code = (request.get_json()).get("code")
     response = requests.post(
         f"http://{UserServices}/becameManger",
         json={"code": code, "userMail": userMail}
     )
-    print("el response : ",response.json())
+    print("el response : ", response.json())
     return response.json(), response.status_code
     
 @app.route('/generateBecameManagerCode', methods=['GET'])
@@ -395,6 +500,29 @@ def generate_became_manager_code():
         return response.json(), response.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/user/identity', methods=['GET'])
+@jwt_required()
+def get_user_identity():
+    """
+    Get the current user's identity (email) from JWT token.
+    This endpoint demonstrates how to resolve user email from JWT identity.
+    """
+    try:
+        user_id = get_jwt_identity()
+        user_email = get_user_email_from_jwt_identity(user_id)
+        
+        if user_email is None:
+            return jsonify({"error": "Could not resolve user identity"}), 404
+        
+        return jsonify({
+            "user_id": user_id,
+            "email": user_email
+        }), 200
+    except Exception as e:
+        print(f"Error getting user identity: {e}")
+        return jsonify({"error": "Error retrieving user identity"}), 500
 
 
 

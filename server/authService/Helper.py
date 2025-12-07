@@ -80,3 +80,19 @@ class authHelper :
                 return json.dumps({"status":"user deleted"})
         except Exception as e :
             print(f"matna7ach user :{userId} ")
+    
+    def getUserEmailById(self, userId):
+        """Get user email by user ID"""
+        try:
+            result = self.authenticater.getUserById(userId)
+            if result is not None:
+                result = json.loads(result)
+                user = result.get("user", {})
+                email = user.get("email")
+                if email:
+                    return json.dumps({"email": email, "id": userId})
+                else:
+                    return None
+        except Exception as e:
+            print(f"Error getting user email for userId {userId}: {e}")
+            return None
