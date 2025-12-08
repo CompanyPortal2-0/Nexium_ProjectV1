@@ -690,3 +690,85 @@ class userHelper:
                 "success": False,
                 "error": f"Internal error: {str(e)}"
             }
+    
+    @staticmethod
+    def get_my_employees(manager_email: str, include_details: bool = True) -> Dict[str, Any]:
+        """
+        Get all employees managed by a manager (subordinates).
+        This is for managers to see their team members.
+        
+        Args:
+            manager_email: The email of the manager
+            include_details: If True, returns full user details for each employee
+            
+        Returns:
+            Dict containing employees list with details
+        """
+        try:
+            # Get the manager's user data
+            manager = userHelper.getUserByEmail(manager_email)
+            
+            if not manager:
+                return {
+                    "success": False,
+                    "error": "Manager not found"
+                }
+            
+            # Check if user has employees list
+            employees_emails = manager.EmployeesList if manager.EmployeesList else []
+            
+            if not employees_emails:
+                return {
+                    "success": True,
+                    "manager": {
+                        "email": manager.Email,
+                        "first_name": manager.FirstName,
+                        "last_name": manager.LastName,
+                        "role": manager.Role.value if hasattr(manager.Role, 'value') else str(manager.Role)
+                    },
+                    "employees": [],
+                    "employees_count": 0,
+                    "message": "No employees found for this manager"
+                }
+            
+            employees_details = []
+            
+            if include_details:
+                # Get full details for each employee
+                for emp_email in employees_emails:
+                    employee = userHelper.getUserByEmail(emp_email)
+                    if employee:
+                        employees_details.append({
+                            "email": employee.Email,
+                            "first_name": employee.FirstName,
+                            "last_name": employee.LastName,
+                            "address": employee.Address,
+                            "date_of_birth": employee.DateOfBirth,
+                            "department": employee.Department.value if hasattr(employee.Department, 'value') else str(employee.Department),
+                            "role": employee.Role.value if hasattr(employee.Role, 'value') else str(employee.Role)
+                        })
+                    else:
+                        # If user not found, just include email
+                        employees_details.append({"email": emp_email})
+            else:
+                # Just return email list
+                employees_details = [{"email": email} for email in employees_emails]
+            
+            return {
+                "success": True,
+                "manager": {
+                    "email": manager.Email,
+                    "first_name": manager.FirstName,
+                    "last_name": manager.LastName,
+                    "role": manager.Role.value if hasattr(manager.Role, 'value') else str(manager.Role)
+                },
+                "employees": employees_details,
+                "employees_count": len(employees_details)
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting manager's employees: {e}")
+            return {
+                "success": False,
+                "error": f"Internal error: {str(e)}"
+            }

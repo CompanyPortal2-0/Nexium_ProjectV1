@@ -170,6 +170,35 @@ def get_full_team(email):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/users/<email>/my-employees', methods=['GET'])
+def get_my_employees(email):
+    """
+    Get all employees managed by a manager (subordinates).
+    This endpoint is for managers to see their team members with full details.
+    
+    Query Parameters:
+        - include_details (bool): If true, returns full user details (default: true)
+    
+    Returns:
+        JSON with employees list and manager info
+    """
+    try:
+        # Parse query parameters
+        include_details = request.args.get('include_details', 'true').lower() in ['true', '1', 'yes']
+        
+        # Get employees using helper
+        result = userHelper.get_my_employees(email, include_details)
+        
+        if not result.get("success", False) and result.get("error") == "Manager not found":
+            return jsonify(result), 404
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        print(f"❌ Error in get_my_employees: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
    
 @app.route('/getCodeForManager', methods=['POST'])
 def getCode():
@@ -225,7 +254,10 @@ def becameManager():
     data= request.get_json()
     code=data.get("code")
     userMail=data.get("userMail")
-    return jsonify ({"response":userHelper.make_employee_manager(code,userMail)})
+    print("code :",code)
+    print("userMail :",userMail)
+    
+    return jsonify ({"response":userHelper.make_employee_manager(userMail,code)})
     
 
 

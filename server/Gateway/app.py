@@ -279,7 +279,7 @@ def getCode():
     if not manager_email:
         return jsonify({"Text": "Manager email is required"}), 400
     
-    result, status_code = AuthHelper.get_code_for_manager(manager_email)
+    result, status_code = UserHelper.get_code_for_manager(manager_email)
     return jsonify(result), status_code
 
 
@@ -310,6 +310,24 @@ def get_full_team():
         return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
     
     result, status_code = UserHelper.get_full_team(current_user_email)
+    return jsonify(result), status_code
+
+
+@app.route('/my-employees', methods=['GET'])
+@jwt_required()
+def get_my_employees():
+    """
+    Get all employees managed by the currently logged-in manager.
+    This endpoint is for managers to see their subordinates with full details.
+    """
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+    
+    include_details = request.args.get('include_details', 'true')
+    
+    result, status_code = UserHelper.get_my_employees(current_user_email, include_details)
     return jsonify(result), status_code
 
 
@@ -491,7 +509,7 @@ def becameManager():
         return jsonify({"error": "Could not resolve user identity"}), 401
     
     code = (request.get_json()).get("code")
-    result, status_code = UserHelper.became_manager(code, user_email)
+    result, status_code = UserHelper.become_manager(code, user_email)
     return jsonify(result), status_code
     
 

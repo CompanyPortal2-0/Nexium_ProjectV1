@@ -172,3 +172,36 @@ class UserHelper:
         except Exception as e:
             logger.error(f"Generate became manager code error: {e}")
             return {"error": str(e)}, 500
+    
+    @staticmethod
+    def get_my_employees(
+        manager_email: str,
+        include_details: str = 'true'
+    ) -> Tuple[Dict[str, Any], int]:
+        """
+        Get all employees managed by a manager (subordinates).
+        This is for managers to see their team members with full details.
+        
+        Args:
+            manager_email: The email of the manager
+            include_details: If 'true', returns full user details for each employee
+            
+        Returns:
+            Tuple of (response_data, status_code)
+        """
+        try:
+            response = requests.get(
+                f'http://{UserHelper.USER_SERVICE}/users/{manager_email}/my-employees',
+                params={
+                    'include_details': include_details
+                },
+                timeout=UserHelper.TIMEOUT
+            )
+            return response.json(), response.status_code
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Get my employees service error: {e}")
+            return {"success": False, "error": f"Service communication error: {str(e)}"}, 503
+        except Exception as e:
+            logger.error(f"Get my employees error: {e}")
+            return {"success": False, "error": f"Internal error: {str(e)}"}, 500
