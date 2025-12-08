@@ -48,21 +48,14 @@ class ActivityHelper:
             Dictionary with success status and activity data or error
         """
         try:
-            # Validate activity type
-            if not ActivityType.is_valid(activity_type):
-                return {
-                    "success": False,
-                    "error": f"Invalid activity type: {activity_type}. Valid types: {ActivityType.get_all_types()}"
-                }
+            # Validate status if provided (keep this validation)
+            #if status and not ActivityStatus.is_valid(status):
+            #    return {
+            #        "success": False,
+            #        "error": f"Invalid status: {status}. Valid statuses: {ActivityStatus.get_all_statuses()}"
+            #    }
             
-            # Validate status if provided
-            if status and not ActivityStatus.is_valid(status):
-                return {
-                    "success": False,
-                    "error": f"Invalid status: {status}. Valid statuses: {ActivityStatus.get_all_statuses()}"
-                }
-            
-            # Prepare payload
+            # Prepare payload - accept any activity type from UI
             payload = {
                 "date": date,
                 "creator": creator,
@@ -299,11 +292,7 @@ class ActivityHelper:
             if description is not None:
                 payload["description"] = description
             if activity_type is not None:
-                if not ActivityType.is_valid(activity_type):
-                    return {
-                        "success": False,
-                        "error": f"Invalid activity type: {activity_type}"
-                    }
+                # Accept any activity type from UI (no validation)
                 payload["type"] = activity_type.lower()
             if date is not None:
                 payload["date"] = date

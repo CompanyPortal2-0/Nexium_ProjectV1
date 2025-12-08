@@ -413,6 +413,7 @@ def create_activity():
         
         data = request.json or {}
         data['creator'] = current_user_email
+        #data['status'] = "scheduled"
         
         response = requests.post(
             f'http://{Activity_server}/activities',
@@ -436,6 +437,7 @@ def list_activities():
             params=request.args,
             timeout=10
         )
+        print("activity GET :",response.json())
         return jsonify(response.json()), response.status_code
     except requests.exceptions.RequestException as e:
         return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
@@ -518,6 +520,7 @@ def join_activity(activity_id):
             json={'employee_email': current_user_email},
             timeout=10
         )
+        
         return jsonify(response.json()), response.status_code
     except requests.exceptions.RequestException as e:
         return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503

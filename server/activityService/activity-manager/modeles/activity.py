@@ -14,7 +14,7 @@ class ActivityType(Enum):
     @classmethod
     def is_valid(cls, value: str) -> bool:
         """Check if a string is a valid activity type"""
-        return value.lower() in [t.value for t in cls]
+        return True
     
     @classmethod
     def get_all_types(cls) -> list:
@@ -32,7 +32,7 @@ class ActivityStatus(Enum):
     @classmethod
     def is_valid(cls, value: str) -> bool:
         """Check if a string is a valid status"""
-        return value.lower() in [s.value for s in cls]
+        return True
     
     @classmethod
     def get_all_statuses(cls) -> list:

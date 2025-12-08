@@ -19,7 +19,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 rooms = {}
 
 signalingServer = os.getenv("SIGNALING_SERVER")
-
+myip=os.getenv("myip")
 @app.route("/create-meet", methods=["POST"])
 def create_meet():
     """
@@ -105,7 +105,7 @@ def join_meet():
         
         return jsonify({
             "success": True,
-            "redirectUrl": f"https://192.168.100.183:7053/room/{meet_id}/{user_email}"
+            "redirectUrl": f"https://{myip}:7053/room/{meet_id}/{user_email}"
         }), 200
         
     except Exception as e:
@@ -128,7 +128,7 @@ def room(meet_id, user_email):
     if userMail not in participants:
         return "You are not a member of this meet", 403
 
-    return render_template("video.html", meet_id=meet_id, user_mail=userMail, server="192.168.100.135:7050") #hadi badelha dynamic
+    return render_template("video.html", meet_id=meet_id, user_mail=userMail, server=f"{myip}:7050") #hadi badelha dynamic
 
 
 # =================== NEW MEETING API ENDPOINTS ===================

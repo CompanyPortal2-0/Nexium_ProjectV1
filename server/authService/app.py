@@ -111,6 +111,7 @@ def login():
         result = json.loads(login_result)
         return jsonify({
             "Token": result.get("Token"),
+            "email": result.get("Email"),
             "firstname": result.get("firstname"),
             "lastname": result.get("lastname"),
             "role": result.get("role")
