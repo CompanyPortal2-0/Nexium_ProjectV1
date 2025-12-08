@@ -1,3 +1,10 @@
+"""
+Gateway API - Main Application
+==============================
+This is the main entry point for the Gateway API.
+It handles routing and delegates business logic to helper classes.
+"""
+
 from flask import Flask, jsonify, render_template, session, send_from_directory, request, redirect
 from dotenv import load_dotenv
 import os
@@ -7,7 +14,6 @@ import json
 import secrets
 import string
 from datetime import datetime
-from dotenv import load_dotenv
 from modeles.role import ROLE
 from modeles.department import Department
 from namespace.GameNamespace import GameNamespace
@@ -15,6 +21,9 @@ from namespace.MeetingNamespace import MeetingNamespace
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, Namespace
 import socketio
+
+# Import helper classes
+from helpers import AuthHelper, UserHelper, ActivityHelper, MeetingHelper, HealthHelper
 
 load_dotenv()
 app = Flask(__name__)
@@ -39,36 +48,7 @@ app.secret_key = 'your-super-secret-jwt-token-with-at-least-32-characters-long'
 
 jwt = JWTManager(app)
 
-# =================== HELPER FUNCTIONS ===================
-
-def get_user_email_from_jwt_identity(user_id):
-    """
-    Get user email from auth service using the JWT identity (user ID).
-    This function is used whenever we need to resolve the user email from the JWT token.
-    
-    Args:
-        user_id: The user ID extracted from JWT token using get_jwt_identity()
-    
-    Returns:
-        str: User email if found, None otherwise
-    """
-    try:
-        response = requests.get(
-            f'http://{AUTH_server}/user/{user_id}/email',
-            timeout=10
-        )
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("email")
-        else:
-            print(f"Failed to get user email: {response.status_code}")
-            return None
-    except requests.exceptions.RequestException as e:
-        print(f"Error getting user email from auth service: {e}")
-        return None
-    except Exception as e:
-        print(f"Unexpected error getting user email: {e}")
-        return None
+# =================== WEBSOCKET HELPER FUNCTIONS ===================
 
 def create_GameServer_connection(client_sid, namespace_instance):
     """Create a dedicated backend connection for a game client"""
@@ -250,19 +230,21 @@ gateway_requests_total 0
 # Authentication endpoints
 @app.route('/login', methods=['POST'])
 def login():
+    """Login endpoint - delegates to AuthHelper"""
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
-    print(email, password)
     
     if (email is None) or (password is None):
         return jsonify({"Text": "missing content"}), 401
-    else:
-        return requests.post(f'http://{AUTH_server}/login', json=data).json(), 200
+    
+    result, status_code = AuthHelper.login(email, password)
+    return jsonify(result) if isinstance(result, dict) else result, status_code
 
 
 @app.route('/signup', methods=['POST'])
 def signUp():
+    """Signup endpoint - delegates to AuthHelper"""
     data = request.get_json()
 
     email = data.get('email')
@@ -276,648 +258,335 @@ def signUp():
     if not all([email, firstName, lastName, Password, DateOfBirth, address]):
         return jsonify({"Text": "Missing required fields"}), 400
     
-    response_from_auth_service = requests.post(f'http://{AUTH_server}/signup', json={
-        "email": email,
-        "Password": Password,
-        "FirstName": firstName,
-        "LastName": lastName,
-        "DateOfBirth": DateOfBirth,
-        "Address": address,
-        "managercode": ManagerCode
-    })
-
-    if response_from_auth_service.status_code == 200:
-            auth_data = response_from_auth_service.json()
-        
-        # Fix: Remove the curly braces around .get("Token")
-            return jsonify({
-            "AuthToken": auth_data.get("Token"),
-            "id": auth_data.get("id"),
-            "firstname":firstName,
-            "lastname":lastName,
-            "role":"employee"
-        }), 200
-    else:
-        return jsonify({"error": "we get an error from auth service"}), 500
+    result, status_code = AuthHelper.signup(
+        email=email,
+        password=Password,
+        first_name=firstName,
+        last_name=lastName,
+        date_of_birth=DateOfBirth,
+        address=address,
+        manager_code=ManagerCode
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/getCodeForManager', methods=['GET'])
 @jwt_required()
 def getCode():
-    """Gateway endpoint - forwards request to UserServices"""
-    try:
-        #current_user_email = get_jwt_identity()#hadi twali ta5edhha ml authservice
-        
-        manager_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        print(manager_email)
-        if not manager_email:
-            return jsonify({"Text": "Manager email is required"}), 400
-        print ("lhan labes")
-        response = requests.post(
-            f'http://{UserServices}/getCodeForManager',
-            json={
-    #            "current_user_email": current_user_email,
-                "manager_email": manager_email
-            },
-            timeout=10
-        )
-        
-        return response.json(), response.status_code
-        
-    except requests.exceptions.RequestException as e:
-        return jsonify({"Text": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"Text": f"Internal error: {str(e)}"}), 500
+    """Gateway endpoint - get manager code using AuthHelper"""
+    manager_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    
+    if not manager_email:
+        return jsonify({"Text": "Manager email is required"}), 400
+    
+    result, status_code = AuthHelper.get_code_for_manager(manager_email)
+    return jsonify(result), status_code
 
 
 # Teammates endpoints
 @app.route('/teammates', methods=['GET'])
 @jwt_required()
 def get_teammates():
-    """
-    Gateway endpoint - Get teammates for the currently logged-in user.
-    Uses JWT identity to determine the user's email.
+    """Get teammates for the currently logged-in user using UserHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
     
-    Query Parameters:
-        - include_details (bool): If true, returns full user objects instead of just emails
-        - include_manager (bool): If true, includes manager information in response
-    """
-    try:
-        # Get current user's email from JWT
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
-        
-        # Get query parameters
-        include_details = request.args.get('include_details', 'true')
-        include_manager = request.args.get('include_manager', 'true')
-        
-        # Forward request to UserServices
-        response = requests.get(
-            f'http://{UserServices}/users/{current_user_email}/teammates',
-            params={
-                'include_details': include_details,
-                'include_manager': include_manager
-            },
-            timeout=10
-        )
-        
-        return jsonify(response.json()), response.status_code
-        
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+    
+    include_details = request.args.get('include_details', 'true')
+    include_manager = request.args.get('include_manager', 'true')
+    
+    result, status_code = UserHelper.get_teammates(current_user_email, include_details, include_manager)
+    return jsonify(result), status_code
 
 
 @app.route('/team', methods=['GET'])
 @jwt_required()
 def get_full_team():
-    """
-    Gateway endpoint - Get full team information for the currently logged-in user.
-    Uses JWT identity to determine the user's email.
+    """Get full team information for the currently logged-in user using UserHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
     
-    Returns full team info including the employee, their manager, and all teammates with details.
-    """
-    try:
-        # Get current user's email from JWT
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
-        
-        # Forward request to UserServices
-        response = requests.get(
-            f'http://{UserServices}/users/{current_user_email}/team',
-            timeout=10
-        )
-        
-        return jsonify(response.json()), response.status_code
-        
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+    
+    result, status_code = UserHelper.get_full_team(current_user_email)
+    return jsonify(result), status_code
 
 
 # Activity endpoints
 @app.route('/activities', methods=['POST'])
 @jwt_required()
 def create_activity():
-    """Create a new activity"""
-    try:
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
-        
-        data = request.json or {}
-        data['creator'] = current_user_email
-        #data['status'] = "scheduled"
-        
-        response = requests.post(
-            f'http://{Activity_server}/activities',
-            json=data,
-            timeout=10
-        )
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    """Create a new activity using ActivityHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+    
+    data = request.json or {}
+    result, status_code = ActivityHelper.create(data, current_user_email)
+    return jsonify(result), status_code
 
 
 @app.route('/activities', methods=['GET'])
 @jwt_required()
 def list_activities():
-    """List all activities with optional filters"""
-    try:
-        response = requests.get(
-            f'http://{Activity_server}/activities',
-            params=request.args,
-            timeout=10
-        )
-        print("activity GET :",response.json())
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    """List all activities with optional filters using ActivityHelper"""
+    result, status_code = ActivityHelper.list_all(dict(request.args))
+    return jsonify(result), status_code
 
 
 @app.route('/activities/<int:activity_id>', methods=['GET'])
 @jwt_required()
 def get_activity(activity_id):
-    """Get a specific activity by ID"""
-    try:
-        response = requests.get(
-            f'http://{Activity_server}/activities/{activity_id}',
-            timeout=10
-        )
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    """Get a specific activity by ID using ActivityHelper"""
+    result, status_code = ActivityHelper.get_by_id(activity_id)
+    return jsonify(result), status_code
 
 
 @app.route('/activities/<int:activity_id>', methods=['PUT'])
 @jwt_required()
 def update_activity(activity_id):
-    """Update an activity"""
-    try:
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
-        
-        data = request.json or {}
-        data['requester_email'] = current_user_email
-        
-        response = requests.put(
-            f'http://{Activity_server}/activities/{activity_id}',
-            json=data,
-            timeout=10
-        )
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    """Update an activity using ActivityHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+    
+    data = request.json or {}
+    result, status_code = ActivityHelper.update(activity_id, data, current_user_email)
+    return jsonify(result), status_code
 
 
 @app.route('/activities/<int:activity_id>', methods=['DELETE'])
 @jwt_required()
 def delete_activity(activity_id):
-    """Delete an activity"""
-    try:
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
-        
-        response = requests.delete(
-            f'http://{Activity_server}/activities/{activity_id}',
-            json={'requester_email': current_user_email},
-            timeout=10
-        )
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    """Delete an activity using ActivityHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+    
+    result, status_code = ActivityHelper.delete(activity_id, current_user_email)
+    return jsonify(result), status_code
 
 
 @app.route('/activities/<activity_id>/join', methods=['POST'])
 @jwt_required()
 def join_activity(activity_id):
-    """Join an activity"""
-    try:
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
-        
-        response = requests.post(
-            f'http://{Activity_server}/activities/{activity_id}/join',
-            json={'employee_email': current_user_email},
-            timeout=10
-        )
-        
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    """Join an activity using ActivityHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+    
+    result, status_code = ActivityHelper.join(activity_id, current_user_email)
+    return jsonify(result), status_code
 
 
 @app.route('/activities/<int:activity_id>/leave', methods=['POST'])
 @jwt_required()
 def leave_activity(activity_id):
-    """Leave an activity"""
-    try:
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
-        
-        response = requests.post(
-            f'http://{Activity_server}/activities/{activity_id}/leave',
-            json={'employee_email': current_user_email},
-            timeout=10
-        )
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    """Leave an activity using ActivityHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+    
+    result, status_code = ActivityHelper.leave(activity_id, current_user_email)
+    return jsonify(result), status_code
 
 
 @app.route('/activities/<int:activity_id>/participants', methods=['POST'])
 @jwt_required()
 def add_participant(activity_id):
-    """Add participants to an activity by email(s)"""
-    try:
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
-        
-        data = request.json or {}
-        
-        # Support both single email and multiple emails
-        emails = data.get('emails', [])
-        participant_email = data.get('participant_email')
-        
-        # If single participant_email provided, convert to list
-        if participant_email and not emails:
-            emails = [participant_email]
-        
-        if not emails:
-            return jsonify({"success": False, "error": "emails or participant_email is required"}), 400
-        
-        response = requests.post(
-            f'http://{Activity_server}/activities/{activity_id}/add-participants',
-            json={'emails': emails},
-            timeout=10
-        )
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    """Add participants to an activity using ActivityHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+    
+    data = request.json or {}
+    
+    # Support both single email and multiple emails
+    emails = data.get('emails', [])
+    participant_email = data.get('participant_email')
+    
+    # If single participant_email provided, convert to list
+    if participant_email and not emails:
+        emails = [participant_email]
+    
+    if not emails:
+        return jsonify({"success": False, "error": "emails or participant_email is required"}), 400
+    
+    result, status_code = ActivityHelper.add_participants(activity_id, emails)
+    return jsonify(result), status_code
 
 
 @app.route('/activities/<int:activity_id>/participants', methods=['GET'])
 @jwt_required()
 def get_participants(activity_id):
-    """Get all participants of an activity"""
-    try:
-        response = requests.get(
-            f'http://{Activity_server}/activities/{activity_id}/participants',
-            timeout=10
-        )
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    """Get all participants of an activity using ActivityHelper"""
+    result, status_code = ActivityHelper.get_participants(activity_id)
+    return jsonify(result), status_code
 
 
 @app.route('/activities/<int:activity_id>/participants/<participant_email>', methods=['DELETE'])
 @jwt_required()
 def remove_participant(activity_id, participant_email):
-    """Remove a participant from an activity (uses leave endpoint)"""
-    try:
-        # Use the leave endpoint to remove a participant
-        response = requests.post(
-            f'http://{Activity_server}/activities/{activity_id}/leave',
-            json={'employee_email': participant_email},
-            timeout=10
-        )
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    """Remove a participant from an activity using ActivityHelper"""
+    result, status_code = ActivityHelper.leave(activity_id, participant_email)
+    return jsonify(result), status_code
 
 
 @app.route('/my-activities', methods=['GET'])
 @jwt_required()
 def get_my_activities():
-    """Get all activities for the current user"""
-    try:
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
-        
-        # Get filter from query params
-        filter_type = request.args.get('filter', 'all')
-        
-        response = requests.post(
-            f'http://{Activity_server}/activities/my-activities',
-            json={
-                'user_email': current_user_email,
-                'filter': filter_type
-            },
-            timeout=10
-        )
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+    """Get all activities for the current user using ActivityHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+    
+    filter_type = request.args.get('filter', 'all')
+    result, status_code = ActivityHelper.get_my_activities(current_user_email, filter_type)
+    return jsonify(result), status_code
 
 
 # Meeting endpoints
 @app.route('/create-meet', methods=['POST'])
 @jwt_required()
 def create_meet():
-    #print(jwt)
-    """Forward create-meet request to backend"""
-    try:
-        print(get_jwt_identity())
-        print("Forwarding create-meet request to backend")
-        data = request.json 
-        data["created_by"]=get_user_email_from_jwt_identity(get_jwt_identity())
-        response = requests.post(
-            f"{Meet_server}/create-meet",
-            json=request.json,
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-    except Exception as e:
-        print(f"Error forwarding create-meet: {e}")
-        return jsonify({"error": "Gateway error"}), 500
+    """Create a new meeting using MeetingHelper"""
+    created_by = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    data = request.json or {}
+    
+    result, status_code = MeetingHelper.create_meeting(data, created_by)
+    return jsonify(result), status_code
 
 
 @app.route('/join-meet', methods=['POST'])
 @jwt_required()
 def join_meet():
-    """Forward join-meet request to backend"""
-    try:
-        data = request.json
-        data["user_email"]=get_user_email_from_jwt_identity(get_jwt_identity())
-        print("Forwarding join-meet request to backend")
-        response = requests.post(
-            f"{Meet_server}/join-meet",
-            json=request.json,
-            verify=False
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            if 'redirectUrl' in data:
-                original_url = data['redirectUrl']
-                path = original_url.split('/', 3)[-1] if '/' in original_url else ''
-                data['redirectUrl'] = f"https://{MYIP}:7050/{path}"
-            return jsonify(data), response.status_code
-        
-        return jsonify(response.json()), response.status_code
-    except Exception as e:
-        print(f"Error forwarding join-meet: {e}")
-        return jsonify({"error": "Gateway error"}), 500
+    """Join a meeting using MeetingHelper"""
+    user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    data = request.json or {}
+    
+    result, status_code = MeetingHelper.join_meeting(data, user_email)
+    return jsonify(result), status_code
 
 
 @app.route('/room/<meet_id>/<user_email>')
 def room(meet_id, user_email):
-    """Forward room page request to backend"""
-    try:
-        print(f"Forwarding room request for {meet_id}/{user_email}")
-        response = requests.get(
-            f"{Meet_server}/room/{meet_id}/{user_email}",
-            verify=False
-        )
-        
-        if response.status_code == 200:
-            html_content = response.text
-            html_content = html_content.replace(
-                'SERVER=\'GatweyIP\'',
-                'SERVER=\'https://{MYIP}:7050\''
-            )
-            return html_content, 200
-        else:
-            return response.text, response.status_code
-            
-    except Exception as e:
-        print(f"Error forwarding room request: {e}")
-        return "Gateway error", 500
+    """Get room page for a meeting using MeetingHelper"""
+    result, status_code = MeetingHelper.get_room_page(meet_id, user_email)
+    
+    if status_code == 200 and isinstance(result, str):
+        return result, 200
+    
+    return jsonify(result) if isinstance(result, dict) else result, status_code
+
 
 # user service 
 @app.route('/becamemanager', methods=['POST'])
 @jwt_required()
 def becameManager():
-    user_id = get_jwt_identity()
-    userMail = get_user_email_from_jwt_identity(user_id)
+    """Become a manager using UserHelper"""
+    user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
     
-    if userMail is None:
+    if user_email is None:
         return jsonify({"error": "Could not resolve user identity"}), 401
     
-    print("user to became manager : ", userMail)
     code = (request.get_json()).get("code")
-    response = requests.post(
-        f"http://{UserServices}/becameManger",
-        json={"code": code, "userMail": userMail}
-    )
-    print("el response : ", response.json())
-    return response.json(), response.status_code
+    result, status_code = UserHelper.became_manager(code, user_email)
+    return jsonify(result), status_code
     
+
 @app.route('/generateBecameManagerCode', methods=['GET'])
 def generate_became_manager_code():
-    try:
-        data = request.get_json()
-        response = requests.get(
-            f'http://{UserServices}/generateBecameManagerCode',
-            json=data,
-            timeout=10
-        )
-        return response.json(), response.status_code
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    """Generate a became manager code using UserHelper"""
+    data = request.get_json()
+    result, status_code = UserHelper.generate_became_manager_code(data)
+    return jsonify(result), status_code
 
 
 @app.route('/user/identity', methods=['GET'])
 @jwt_required()
 def get_user_identity():
-    """
-    Get the current user's identity (email) from JWT token.
-    This endpoint demonstrates how to resolve user email from JWT identity.
-    """
-    try:
-        user_id = get_jwt_identity()
-        user_email = get_user_email_from_jwt_identity(user_id)
-        
-        if user_email is None:
-            return jsonify({"error": "Could not resolve user identity"}), 404
-        
-        return jsonify({
-            "user_id": user_id,
-            "email": user_email
-        }), 200
-    except Exception as e:
-        print(f"Error getting user identity: {e}")
-        return jsonify({"error": "Error retrieving user identity"}), 500
+    """Get the current user's identity (email) from JWT token using UserHelper"""
+    user_id = get_jwt_identity()
+    result, status_code = UserHelper.get_user_identity(user_id)
+    return jsonify(result), status_code
 
 
-
-# =================== NEW MEETING CRUD ENDPOINTS ===================
+# =================== MEETING CRUD ENDPOINTS ===================
 
 @app.route('/meetings', methods=['GET'])
 @jwt_required()
 def get_all_meetings():
-    """Forward get all meetings request to backend"""
-    try:
-        user_email = request.args.get('user_email')
-        is_active = request.args.get('is_active')
-        
-        params = {}
-        if user_email:
-            params['user_email'] = user_email
-        if is_active:
-            params['is_active'] = is_active
-        
-        response = requests.get(
-            f"{Meet_server}/meetings",
-            params=params,
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-    except Exception as e:
-        print(f"Error forwarding get meetings: {e}")
-        return jsonify({"error": "Gateway error"}), 500
+    """Get all meetings using MeetingHelper"""
+    user_email = request.args.get('user_email')
+    is_active = request.args.get('is_active')
+    
+    result, status_code = MeetingHelper.get_all_meetings(user_email, is_active)
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/<meeting_id>', methods=['GET'])
 @jwt_required()
 def get_meeting(meeting_id):
-    """Forward get meeting by ID request to backend"""
-    try:
-        response = requests.get(
-            f"{Meet_server}/meetings/{meeting_id}",
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-    except Exception as e:
-        print(f"Error forwarding get meeting: {e}")
-        return jsonify({"error": "Gateway error"}), 500
+    """Get a specific meeting by ID using MeetingHelper"""
+    result, status_code = MeetingHelper.get_meeting(meeting_id)
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/<meeting_id>', methods=['PUT'])
 @jwt_required()
 def update_meeting(meeting_id):
-    """Forward update meeting request to backend"""
-    try:
-        response = requests.put(
-            f"{Meet_server}/meetings/{meeting_id}",
-            json=request.json,
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-    except Exception as e:
-        print(f"Error forwarding update meeting: {e}")
-        return jsonify({"error": "Gateway error"}), 500
+    """Update a meeting using MeetingHelper"""
+    data = request.json or {}
+    result, status_code = MeetingHelper.update_meeting(meeting_id, data)
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/<meeting_id>', methods=['DELETE'])
 @jwt_required()
 def delete_meeting(meeting_id):
-    """Forward delete meeting request to backend"""
-    try:
-        response = requests.delete(
-            f"{Meet_server}/meetings/{meeting_id}",
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-    except Exception as e:
-        print(f"Error forwarding delete meeting: {e}")
-        return jsonify({"error": "Gateway error"}), 500
+    """Delete a meeting using MeetingHelper"""
+    result, status_code = MeetingHelper.delete_meeting(meeting_id)
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/<meeting_id>/start', methods=['POST'])
 @jwt_required()
 def start_meeting(meeting_id):
-    """Forward start meeting request to backend"""
-    try:
-        response = requests.post(
-            f"{Meet_server}/meetings/{meeting_id}/start",
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-    except Exception as e:
-        print(f"Error forwarding start meeting: {e}")
-        return jsonify({"error": "Gateway error"}), 500
+    """Start a meeting using MeetingHelper"""
+    result, status_code = MeetingHelper.start_meeting(meeting_id)
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/<meeting_id>/end', methods=['POST'])
 @jwt_required()
 def end_meeting(meeting_id):
-    """Forward end meeting request to backend"""
-    try:
-        response = requests.post(
-            f"{Meet_server}/meetings/{meeting_id}/end",
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-    except Exception as e:
-        print(f"Error forwarding end meeting: {e}")
-        return jsonify({"error": "Gateway error"}), 500
+    """End a meeting using MeetingHelper"""
+    result, status_code = MeetingHelper.end_meeting(meeting_id)
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/<meeting_id>/log', methods=['POST'])
 @jwt_required()
 def add_meeting_log(meeting_id):
-    """Forward add log entry request to backend"""
-    try:
-        response = requests.post(
-            f"{Meet_server}/meetings/{meeting_id}/log",
-            json=request.json,
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-    except Exception as e:
-        print(f"Error forwarding add log entry: {e}")
-        return jsonify({"error": "Gateway error"}), 500
+    """Add a log entry to a meeting using MeetingHelper"""
+    data = request.json or {}
+    result, status_code = MeetingHelper.add_log(meeting_id, data)
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/<meeting_id>/log', methods=['GET'])
 @jwt_required()
 def get_meeting_log(meeting_id):
-    """Forward get meeting log request to backend"""
-    try:
-        download = request.args.get('download')
-        params = {}
-        if download:
-            params['download'] = download
-        
-        response = requests.get(
-            f"{Meet_server}/meetings/{meeting_id}/log",
-            params=params,
-            verify=False
-        )
-        
-        if download and response.status_code == 200:
-            # Forward the file download response
-            return response.content, response.status_code, response.headers.items()
-        else:
-            return jsonify(response.json()), response.status_code
-    except Exception as e:
-        print(f"Error forwarding get meeting log: {e}")
-        return jsonify({"error": "Gateway error"}), 500
+    """Get meeting log using MeetingHelper"""
+    download = request.args.get('download')
+    result, status_code = MeetingHelper.get_log(meeting_id, download)
+    
+    # Handle file download
+    if download and status_code == 200 and not isinstance(result, dict):
+        return result, status_code
+    
+    return jsonify(result), status_code
 
 
 # =================== USER MEETING ENDPOINTS ===================
@@ -925,192 +594,95 @@ def get_meeting_log(meeting_id):
 @app.route('/meetings/my', methods=['GET'])
 @jwt_required()
 def get_my_meetings():
-    """
-    Get all meetings for the currently logged-in user.
-    Uses JWT to determine user's email automatically.
+    """Get all meetings for the currently logged-in user using MeetingHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
     
-    Query params:
-        - filter: 'all', 'created', or 'invited' (default: 'all')
-        - is_active: true/false to filter by active status
-        - include_details: true/false to include creator details
-    """
-    try:
-        # Get current user's email from JWT
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
-        
-        # Get query parameters
-        filter_type = request.args.get('filter', 'all')
-        is_active = request.args.get('is_active')
-        include_details = request.args.get('include_details', 'false')
-        
-        params = {'filter': filter_type, 'include_details': include_details}
-        if is_active:
-            params['is_active'] = is_active
-        
-        response = requests.get(
-            f"{Meet_server}/meetings/user/{current_user_email}",
-            params=params,
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Error forwarding get my meetings: {e}")
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        print(f"Error getting my meetings: {e}")
-        return jsonify({"success": False, "error": "Gateway error"}), 500
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+    
+    filter_type = request.args.get('filter', 'all')
+    is_active = request.args.get('is_active')
+    include_details = request.args.get('include_details', 'false')
+    
+    result, status_code = MeetingHelper.get_my_meetings(
+        current_user_email, filter_type, is_active, include_details
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/my/upcoming', methods=['GET'])
 @jwt_required()
 def get_my_upcoming_meetings():
-    """
-    Get all upcoming meetings for the currently logged-in user.
-    Uses JWT to determine user's email automatically.
-    """
-    try:
-        # Get current user's email from JWT
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
-        
-        response = requests.get(
-            f"{Meet_server}/meetings/user/{current_user_email}/upcoming",
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Error forwarding get my upcoming meetings: {e}")
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        print(f"Error getting my upcoming meetings: {e}")
-        return jsonify({"success": False, "error": "Gateway error"}), 500
+    """Get all upcoming meetings for the currently logged-in user using MeetingHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+    
+    result, status_code = MeetingHelper.get_my_upcoming_meetings(current_user_email)
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/user', methods=['GET'])
 @jwt_required()
 def get_user_meetings_by_email():
-    """
-    Get all meetings for a specific user by email.
+    """Get all meetings for a specific user by email using MeetingHelper"""
+    email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    filter_type = request.args.get('filter', 'all')
+    is_active = request.args.get('is_active')
+    include_details = request.args.get('include_details', 'false')
     
-    Query params:
-        - filter: 'all', 'created', or 'invited' (default: 'all')
-        - is_active: true/false to filter by active status
-        - include_details: true/false to include creator details
-    """
-    try:
-        # Get query parameters
-        filter_type = request.args.get('filter', 'all')
-        is_active = request.args.get('is_active')
-        include_details = request.args.get('include_details', 'false')
-        email=get_user_email_from_jwt_identity(get_jwt_identity())
-        params = {'filter': filter_type, 'include_details': include_details}
-        if is_active:
-            params['is_active'] = is_active
-        
-        response = requests.get(
-            f"{Meet_server}/meetings/user/{email}",
-            params=params,
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Error forwarding get user meetings: {e}")
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        print(f"Error getting user meetings: {e}")
-        return jsonify({"success": False, "error": "Gateway error"}), 500
+    result, status_code = MeetingHelper.get_user_meetings(
+        email, filter_type, is_active, include_details
+    )
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/user/<email>/upcoming', methods=['GET'])
 @jwt_required()
 def get_user_upcoming_meetings_by_email(email):
-    """
-    Get all upcoming meetings for a specific user by email.
-    """
-    try:
-        response = requests.get(
-            f"{Meet_server}/meetings/user/{email}/upcoming",
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Error forwarding get user upcoming meetings: {e}")
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        print(f"Error getting user upcoming meetings: {e}")
-        return jsonify({"success": False, "error": "Gateway error"}), 500
+    """Get all upcoming meetings for a specific user by email using MeetingHelper"""
+    result, status_code = MeetingHelper.get_user_upcoming_meetings(email)
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/<meeting_id>/delete', methods=['DELETE'])
 @jwt_required()
 def delete_meeting_by_user(meeting_id):
-    """
-    Soft delete a meeting - only the creator can delete it.
-    Uses JWT to determine user's email automatically.
-    """
-    try:
-        # Get current user's email from JWT
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
-        
-        response = requests.delete(
-            f"{Meet_server}/meetings/{meeting_id}/delete",
-            json={"user_email": current_user_email},
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Error forwarding delete meeting: {e}")
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        print(f"Error deleting meeting: {e}")
-        return jsonify({"success": False, "error": "Gateway error"}), 500
+    """Soft delete a meeting using MeetingHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+    
+    result, status_code = MeetingHelper.delete_meeting_by_user(meeting_id, current_user_email)
+    return jsonify(result), status_code
 
 
 @app.route('/meetings/<meeting_id>/hard-delete', methods=['DELETE'])
 @jwt_required()
 def hard_delete_meeting_route(meeting_id):
-    """
-    Permanently delete a meeting - only the creator can do this.
-    Uses JWT to determine user's email automatically.
-    Requires confirm=true in request body.
-    """
-    try:
-        # Get current user's email from JWT
-        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
-        
-        if not current_user_email:
-            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
-        
-        data = request.json or {}
-        confirm = data.get('confirm', False)
-        
-        response = requests.delete(
-            f"{Meet_server}/meetings/{meeting_id}/hard-delete",
-            json={"user_email": current_user_email, "confirm": confirm},
-            verify=False
-        )
-        return jsonify(response.json()), response.status_code
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Error forwarding hard delete meeting: {e}")
-        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
-    except Exception as e:
-        print(f"Error hard deleting meeting: {e}")
-        return jsonify({"success": False, "error": "Gateway error"}), 500
+    """Permanently delete a meeting using MeetingHelper"""
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+    
+    data = request.json or {}
+    confirm = data.get('confirm', False)
+    
+    result, status_code = MeetingHelper.hard_delete_meeting(meeting_id, current_user_email, confirm)
+    return jsonify(result), status_code
 
+
+# =================== MAIN ENTRY POINT ===================
 
 if __name__ == '__main__':
-    socketio_app.run(app, host='0.0.0.0', port=7050, debug=True, allow_unsafe_werkzeug=True,ssl_context=('meetingService\\certifs\\cert.pem', 'meetingService\\certifs\\key.pem'))
+    socketio_app.run(
+        app, 
+        host='0.0.0.0', 
+        port=7050, 
+        debug=True, 
+        allow_unsafe_werkzeug=True,
+        ssl_context=('meetingService\\certifs\\cert.pem', 'meetingService\\certifs\\key.pem')
+    )
