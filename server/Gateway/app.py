@@ -33,7 +33,8 @@ SAVING_server = os.getenv('SAVING_server')
 UserServices = os.getenv('UserServices_server')
 Game_server = os.getenv('Game_server')
 Meet_server = os.getenv('Meet_server')
-
+Activity_server = os.getenv('Activity_server', 'localhost:7056')
+MYIP = os.getenv('myip', 'localhost:7056')
 app.secret_key = 'your-super-secret-jwt-token-with-at-least-32-characters-long'
 
 jwt = JWTManager(app)
@@ -400,15 +401,257 @@ def get_full_team():
         return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
 
 
+# Activity endpoints
+@app.route('/activities', methods=['POST'])
+@jwt_required()
+def create_activity():
+    """Create a new activity"""
+    try:
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+        
+        data = request.json or {}
+        data['creator'] = current_user_email
+        
+        response = requests.post(
+            f'http://{Activity_server}/activities',
+            json=data,
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/activities', methods=['GET'])
+@jwt_required()
+def list_activities():
+    """List all activities with optional filters"""
+    try:
+        response = requests.get(
+            f'http://{Activity_server}/activities',
+            params=request.args,
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/activities/<int:activity_id>', methods=['GET'])
+@jwt_required()
+def get_activity(activity_id):
+    """Get a specific activity by ID"""
+    try:
+        response = requests.get(
+            f'http://{Activity_server}/activities/{activity_id}',
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/activities/<int:activity_id>', methods=['PUT'])
+@jwt_required()
+def update_activity(activity_id):
+    """Update an activity"""
+    try:
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+        
+        data = request.json or {}
+        data['requester_email'] = current_user_email
+        
+        response = requests.put(
+            f'http://{Activity_server}/activities/{activity_id}',
+            json=data,
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/activities/<int:activity_id>', methods=['DELETE'])
+@jwt_required()
+def delete_activity(activity_id):
+    """Delete an activity"""
+    try:
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+        
+        response = requests.delete(
+            f'http://{Activity_server}/activities/{activity_id}',
+            json={'requester_email': current_user_email},
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/activities/<activity_id>/join', methods=['POST'])
+@jwt_required()
+def join_activity(activity_id):
+    """Join an activity"""
+    try:
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+        
+        response = requests.post(
+            f'http://{Activity_server}/activities/{activity_id}/join',
+            json={'employee_email': current_user_email},
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/activities/<int:activity_id>/leave', methods=['POST'])
+@jwt_required()
+def leave_activity(activity_id):
+    """Leave an activity"""
+    try:
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+        
+        response = requests.post(
+            f'http://{Activity_server}/activities/{activity_id}/leave',
+            json={'employee_email': current_user_email},
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/activities/<int:activity_id>/participants', methods=['POST'])
+@jwt_required()
+def add_participant(activity_id):
+    """Add participants to an activity by email(s)"""
+    try:
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+        
+        data = request.json or {}
+        
+        # Support both single email and multiple emails
+        emails = data.get('emails', [])
+        participant_email = data.get('participant_email')
+        
+        # If single participant_email provided, convert to list
+        if participant_email and not emails:
+            emails = [participant_email]
+        
+        if not emails:
+            return jsonify({"success": False, "error": "emails or participant_email is required"}), 400
+        
+        response = requests.post(
+            f'http://{Activity_server}/activities/{activity_id}/add-participants',
+            json={'emails': emails},
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/activities/<int:activity_id>/participants', methods=['GET'])
+@jwt_required()
+def get_participants(activity_id):
+    """Get all participants of an activity"""
+    try:
+        response = requests.get(
+            f'http://{Activity_server}/activities/{activity_id}/participants',
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/activities/<int:activity_id>/participants/<participant_email>', methods=['DELETE'])
+@jwt_required()
+def remove_participant(activity_id, participant_email):
+    """Remove a participant from an activity (uses leave endpoint)"""
+    try:
+        # Use the leave endpoint to remove a participant
+        response = requests.post(
+            f'http://{Activity_server}/activities/{activity_id}/leave',
+            json={'employee_email': participant_email},
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/my-activities', methods=['GET'])
+@jwt_required()
+def get_my_activities():
+    """Get all activities for the current user"""
+    try:
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not resolve user identity"}), 401
+        
+        # Get filter from query params
+        filter_type = request.args.get('filter', 'all')
+        
+        response = requests.post(
+            f'http://{Activity_server}/activities/my-activities',
+            json={
+                'user_email': current_user_email,
+                'filter': filter_type
+            },
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Internal error: {str(e)}"}), 500
+
+
 # Meeting endpoints
 @app.route('/create-meet', methods=['POST'])
 @jwt_required()
 def create_meet():
-    print(jwt)
+    #print(jwt)
     """Forward create-meet request to backend"""
     try:
         print(get_jwt_identity())
         print("Forwarding create-meet request to backend")
+        data = request.json 
+        data["created_by"]=get_user_email_from_jwt_identity(get_jwt_identity())
         response = requests.post(
             f"{Meet_server}/create-meet",
             json=request.json,
@@ -421,9 +664,12 @@ def create_meet():
 
 
 @app.route('/join-meet', methods=['POST'])
+@jwt_required()
 def join_meet():
     """Forward join-meet request to backend"""
     try:
+        data = request.json
+        data["user_email"]=get_user_email_from_jwt_identity(get_jwt_identity())
         print("Forwarding join-meet request to backend")
         response = requests.post(
             f"{Meet_server}/join-meet",
@@ -436,7 +682,7 @@ def join_meet():
             if 'redirectUrl' in data:
                 original_url = data['redirectUrl']
                 path = original_url.split('/', 3)[-1] if '/' in original_url else ''
-                data['redirectUrl'] = f"https://localhost:7050/{path}"
+                data['redirectUrl'] = f"https://{MYIP}:7050/{path}"
             return jsonify(data), response.status_code
         
         return jsonify(response.json()), response.status_code
@@ -458,8 +704,8 @@ def room(meet_id, user_email):
         if response.status_code == 200:
             html_content = response.text
             html_content = html_content.replace(
-                'server="https://{Meet_server}:7053"',
-                'server="https://localhost:7050"'
+                'SERVER=\'GatweyIP\'',
+                'SERVER=\'https://{MYIP}:7050\''
             )
             return html_content, 200
         else:
@@ -669,6 +915,198 @@ def get_meeting_log(meeting_id):
     except Exception as e:
         print(f"Error forwarding get meeting log: {e}")
         return jsonify({"error": "Gateway error"}), 500
+
+
+# =================== USER MEETING ENDPOINTS ===================
+
+@app.route('/meetings/my', methods=['GET'])
+@jwt_required()
+def get_my_meetings():
+    """
+    Get all meetings for the currently logged-in user.
+    Uses JWT to determine user's email automatically.
+    
+    Query params:
+        - filter: 'all', 'created', or 'invited' (default: 'all')
+        - is_active: true/false to filter by active status
+        - include_details: true/false to include creator details
+    """
+    try:
+        # Get current user's email from JWT
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+        
+        # Get query parameters
+        filter_type = request.args.get('filter', 'all')
+        is_active = request.args.get('is_active')
+        include_details = request.args.get('include_details', 'false')
+        
+        params = {'filter': filter_type, 'include_details': include_details}
+        if is_active:
+            params['is_active'] = is_active
+        
+        response = requests.get(
+            f"{Meet_server}/meetings/user/{current_user_email}",
+            params=params,
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error forwarding get my meetings: {e}")
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        print(f"Error getting my meetings: {e}")
+        return jsonify({"success": False, "error": "Gateway error"}), 500
+
+
+@app.route('/meetings/my/upcoming', methods=['GET'])
+@jwt_required()
+def get_my_upcoming_meetings():
+    """
+    Get all upcoming meetings for the currently logged-in user.
+    Uses JWT to determine user's email automatically.
+    """
+    try:
+        # Get current user's email from JWT
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+        
+        response = requests.get(
+            f"{Meet_server}/meetings/user/{current_user_email}/upcoming",
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error forwarding get my upcoming meetings: {e}")
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        print(f"Error getting my upcoming meetings: {e}")
+        return jsonify({"success": False, "error": "Gateway error"}), 500
+
+
+@app.route('/meetings/user', methods=['GET'])
+@jwt_required()
+def get_user_meetings_by_email():
+    """
+    Get all meetings for a specific user by email.
+    
+    Query params:
+        - filter: 'all', 'created', or 'invited' (default: 'all')
+        - is_active: true/false to filter by active status
+        - include_details: true/false to include creator details
+    """
+    try:
+        # Get query parameters
+        filter_type = request.args.get('filter', 'all')
+        is_active = request.args.get('is_active')
+        include_details = request.args.get('include_details', 'false')
+        email=get_user_email_from_jwt_identity(get_jwt_identity())
+        params = {'filter': filter_type, 'include_details': include_details}
+        if is_active:
+            params['is_active'] = is_active
+        
+        response = requests.get(
+            f"{Meet_server}/meetings/user/{email}",
+            params=params,
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error forwarding get user meetings: {e}")
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        print(f"Error getting user meetings: {e}")
+        return jsonify({"success": False, "error": "Gateway error"}), 500
+
+
+@app.route('/meetings/user/<email>/upcoming', methods=['GET'])
+@jwt_required()
+def get_user_upcoming_meetings_by_email(email):
+    """
+    Get all upcoming meetings for a specific user by email.
+    """
+    try:
+        response = requests.get(
+            f"{Meet_server}/meetings/user/{email}/upcoming",
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error forwarding get user upcoming meetings: {e}")
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        print(f"Error getting user upcoming meetings: {e}")
+        return jsonify({"success": False, "error": "Gateway error"}), 500
+
+
+@app.route('/meetings/<meeting_id>/delete', methods=['DELETE'])
+@jwt_required()
+def delete_meeting_by_user(meeting_id):
+    """
+    Soft delete a meeting - only the creator can delete it.
+    Uses JWT to determine user's email automatically.
+    """
+    try:
+        # Get current user's email from JWT
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+        
+        response = requests.delete(
+            f"{Meet_server}/meetings/{meeting_id}/delete",
+            json={"user_email": current_user_email},
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error forwarding delete meeting: {e}")
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        print(f"Error deleting meeting: {e}")
+        return jsonify({"success": False, "error": "Gateway error"}), 500
+
+
+@app.route('/meetings/<meeting_id>/hard-delete', methods=['DELETE'])
+@jwt_required()
+def hard_delete_meeting_route(meeting_id):
+    """
+    Permanently delete a meeting - only the creator can do this.
+    Uses JWT to determine user's email automatically.
+    Requires confirm=true in request body.
+    """
+    try:
+        # Get current user's email from JWT
+        current_user_email = get_user_email_from_jwt_identity(get_jwt_identity())
+        
+        if not current_user_email:
+            return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+        
+        data = request.json or {}
+        confirm = data.get('confirm', False)
+        
+        response = requests.delete(
+            f"{Meet_server}/meetings/{meeting_id}/hard-delete",
+            json={"user_email": current_user_email, "confirm": confirm},
+            verify=False
+        )
+        return jsonify(response.json()), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error forwarding hard delete meeting: {e}")
+        return jsonify({"success": False, "error": f"Service communication error: {str(e)}"}), 503
+    except Exception as e:
+        print(f"Error hard deleting meeting: {e}")
+        return jsonify({"success": False, "error": "Gateway error"}), 500
 
 
 if __name__ == '__main__':

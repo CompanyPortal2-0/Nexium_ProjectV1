@@ -318,7 +318,142 @@ class MeetHelper:
         except Exception as e:
             logger.error(f"Error deleting meeting: {str(e)}")
             return False
+
+    # =================== NEW USER MEETING ENDPOINTS ===================
     
+    @staticmethod
+    def getUserMeetings(user_email: str, filter_type: str = 'all', 
+                        is_active: Optional[bool] = None, 
+                        include_details: bool = False) -> dict:
+        """
+        Get all meetings related to a specific user - both created and invited.
+        
+        Args:
+            user_email: Email of the user
+            filter_type: Filter type - 'all', 'created', or 'invited'
+            is_active: Filter by active status
+            include_details: Include creator user details
+            
+        Returns:
+            Dictionary with meetings data and statistics
+        """
+        try:
+            params = {'filter': filter_type}
+            if is_active is not None:
+                params['is_active'] = str(is_active).lower()
+            if include_details:
+                params['include_details'] = 'true'
+            
+            response = requests.get(
+                f"{MeetHelper.BASE_URL}/meetings/user/{user_email}",
+                headers=MeetHelper.HEADERS,
+                params=params
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"Failed to get user meetings: {response.status_code} - {response.text}")
+                return {"success": False, "error": response.json().get('error', 'Unknown error')}
+                
+        except Exception as e:
+            logger.error(f"Error getting user meetings: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
+    @staticmethod
+    def getUserUpcomingMeetings(user_email: str) -> dict:
+        """
+        Get all upcoming (active) meetings for a user, separated by status.
+        
+        Args:
+            user_email: Email of the user
+            
+        Returns:
+            Dictionary with upcoming meetings data
+        """
+        try:
+            response = requests.get(
+                f"{MeetHelper.BASE_URL}/meetings/user/{user_email}/upcoming",
+                headers=MeetHelper.HEADERS
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"Failed to get upcoming meetings: {response.status_code} - {response.text}")
+                return {"success": False, "error": response.json().get('error', 'Unknown error')}
+                
+        except Exception as e:
+            logger.error(f"Error getting upcoming meetings: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
+    @staticmethod
+    def deleteMeetingByUser(meeting_id: str, user_email: str) -> dict:
+        """
+        Soft delete a meeting - only the creator can delete it.
+        
+        Args:
+            meeting_id: UUID of the meeting
+            user_email: Email of the user requesting deletion (must be creator)
+            
+        Returns:
+            Dictionary with success status and message
+        """
+        try:
+            response = requests.delete(
+                f"{MeetHelper.BASE_URL}/meetings/{meeting_id}",
+                headers=MeetHelper.HEADERS,
+                json={"user_email": user_email}
+            )
+            
+            result = response.json()
+            
+            if response.status_code == 200:
+                # Remove from cache
+                if meeting_id in MeetHelper.__meetings_cache:
+                    del MeetHelper.__meetings_cache[meeting_id]
+                logger.info(f"Meeting deleted by user: {meeting_id}")
+            
+            return result, response.status_code
+                
+        except Exception as e:
+            logger.error(f"Error deleting meeting: {str(e)}")
+            return {"success": False, "error": str(e)}, 500
+    
+    @staticmethod
+    def hardDeleteMeeting(meeting_id: str, user_email: str, confirm: bool = False) -> tuple:
+        """
+        Permanently delete a meeting - only the creator can do this.
+        
+        Args:
+            meeting_id: UUID of the meeting
+            user_email: Email of the user requesting deletion (must be creator)
+            confirm: Must be True to confirm permanent deletion
+            
+        Returns:
+            Tuple of (response dict, status code)
+        """
+        try:
+            response = requests.delete(
+                f"{MeetHelper.BASE_URL}/meetings/{meeting_id}/hard-delete",
+                headers=MeetHelper.HEADERS,
+                json={"user_email": user_email, "confirm": confirm}
+            )
+            
+            result = response.json()
+            
+            if response.status_code == 200:
+                # Remove from cache
+                if meeting_id in MeetHelper.__meetings_cache:
+                    del MeetHelper.__meetings_cache[meeting_id]
+                logger.info(f"Meeting permanently deleted: {meeting_id}")
+            
+            return result, response.status_code
+                
+        except Exception as e:
+            logger.error(f"Error hard deleting meeting: {str(e)}")
+            return {"success": False, "error": str(e)}, 500
+
     # ========== Legacy Methods (kept for backward compatibility) ==========
     
     @staticmethod

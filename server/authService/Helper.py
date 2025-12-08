@@ -14,17 +14,17 @@ class authHelper :
     
     def CreateUser(self,Email,password):
         try:
-            print("result : ")
+            #print("result : ")
             result = self.authenticater.createUser(Email,password)
-            print("result type : ", type(result))
+            #print("result type : ", type(result))
             if(result is not None):
                 result = json.loads(result)
                 session = (result.get("session", {}))
                 user = (result.get("user", {}))
-                print("user : ")
-                print(user)
-                print("seesion : ")
-                print(session)
+                #print("user : ")
+                #print(user)
+                #print("seesion : ")
+                #print(session)
                 return json.dumps({"Token":session.get("access_token"),"id":user.get("id")})
         except Exception as e:
             print(f"Auth creation error: {e}")
@@ -33,18 +33,18 @@ class authHelper :
     
     def login (self,Email,password):
         try:
-            print("email : ",Email)
-            print("passwor : " , password)
+            #print("email : ",Email)
+            #print("passwor : " , password)
             result = self.authenticater.login(Email,password)
             print("result type : ", type(result))
             if(result is not None):
                 result = json.loads(result)
                 session = (result.get("session", {}))
                 user = (result.get("user", {}))
-                print("user : ")
-                print(user)
-                print("seesion : ")
-                print(session)
+                #print("user : ")
+                #print(user)
+                #print("seesion : ")
+                #print(session)
                 
                 # FIX: Get the response and parse it as JSON
                 userFromServiceResponse = requests.get(f'http://{self.userService}/users/by-email/{Email}')

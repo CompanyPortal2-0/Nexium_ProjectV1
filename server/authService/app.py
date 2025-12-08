@@ -9,8 +9,15 @@ from supaBase.supaBase import dataBaseAuth
 load_dotenv()
 
 app = Flask(__name__)
-authenter = dataBaseAuth(os.getenv("SUPABASE_URL"),os.getenv("SUPABASE_KEY"))
+
+# Initialize Supabase with both ANON_KEY and SERVICE_ROLE_KEY
+supabase_url = os.getenv("SUPABASE_URL")
+anon_key = os.getenv("SUPABASE_ANON_KEY")
+service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+authenter = dataBaseAuth(supabase_url, anon_key, service_role_key)
 auth_helper = authHelper(authenter)
+
 SAVING_server = os.getenv('SAVING_server')
 USER_SERVICE = os.getenv('userService')
 
@@ -63,7 +70,7 @@ def signUp():
         response_from_user_service = requests.post(
             f'http://{USER_SERVICE}/register-user', 
             json=user_data,
-            timeout=15
+            
         )
     except Exception as e:
         delResult = auth_helper.deleteUser(id)

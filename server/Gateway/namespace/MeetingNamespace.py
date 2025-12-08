@@ -15,18 +15,24 @@ class MeetingNamespace(Namespace):
     def create_backend_connection(self, client_sid, user_email=None):
         """Create a dedicated backend connection for a meeting client"""
         connection_url = self.meet_server_url
-        if user_email:
-            connection_url = f"{self.meet_server_url}?user_email={user_email}"
         
         backend = socketio.Client(
-            logger=False, 
-            engineio_logger=False,
+            logger=True,  # Enable logging for debugging
+            engineio_logger=True,
             ssl_verify=False,
             reconnection=True,
             reconnection_attempts=5,
             reconnection_delay=1,
             reconnection_delay_max=5,
         )
+        
+        @backend.on('connect')
+        def on_connect():
+            print(f"✅ Backend connected for client {client_sid}")
+        
+        @backend.on('connect_error')
+        def on_connect_error(data):
+            print(f"❌ Backend connection error for client {client_sid}: {data}")
         
         @backend.on('room-joined')
         def on_room_joined(data):
@@ -69,7 +75,24 @@ class MeetingNamespace(Namespace):
             self.socketio_app.emit('room-full', data, to=client_sid, namespace='/meeting')
         
         try:
-            backend.connect(connection_url)
+            # Build query parameters for connection
+            headers = {}
+            if user_email:
+                # Pass user_email as query parameter during connection
+                backend.connect(
+                    connection_url, 
+                    transports=['websocket', 'polling'],
+                    headers=headers,
+                    socketio_path='/socket.io',
+                    wait_timeout=10
+                )
+            else:
+                backend.connect(
+                    connection_url, 
+                    transports=['websocket', 'polling'],
+                    socketio_path='/socket.io',
+                    wait_timeout=10
+                )
             print(f"✅ Created backend connection for meeting client {client_sid}")
             return backend
         except Exception as e:
@@ -89,7 +112,7 @@ class MeetingNamespace(Namespace):
                 'user_email': user_email
             }
         else:
-            self.emit('error', 'Failed to connect to meeting server', to=client_sid)
+            self.socketio_app.emit('error', 'Failed to connect to meeting server', to=client_sid, namespace='/meeting')
     
     def on_disconnect(self):
         """Client disconnected from meeting namespace"""
@@ -111,7 +134,7 @@ class MeetingNamespace(Namespace):
         if client_sid in self.client_connections:
             self.client_connections[client_sid]['backend'].emit('join', data)
         else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
+            self.socketio_app.emit('error', 'Backend connection not found', to=client_sid, namespace='/meeting')
     
     def on_leave(self, data):
         """Forward leave event to backend"""
@@ -121,7 +144,7 @@ class MeetingNamespace(Namespace):
         if client_sid in self.client_connections:
             self.client_connections[client_sid]['backend'].emit('leave', data)
         else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
+            self.socketio_app.emit('error', 'Backend connection not found', to=client_sid, namespace='/meeting')
     
     def on_offer(self, data):
         """Forward WebRTC offer to backend"""
@@ -131,7 +154,7 @@ class MeetingNamespace(Namespace):
         if client_sid in self.client_connections:
             self.client_connections[client_sid]['backend'].emit('offer', data)
         else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
+            self.socketio_app.emit('error', 'Backend connection not found', to=client_sid, namespace='/meeting')
     
     def on_answer(self, data):
         """Forward WebRTC answer to backend"""
@@ -141,7 +164,7 @@ class MeetingNamespace(Namespace):
         if client_sid in self.client_connections:
             self.client_connections[client_sid]['backend'].emit('answer', data)
         else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
+            self.socketio_app.emit('error', 'Backend connection not found', to=client_sid, namespace='/meeting')
     
     def on_ice_candidate(self, data):
         """Forward ICE candidate to backend"""
@@ -151,4 +174,4 @@ class MeetingNamespace(Namespace):
         if client_sid in self.client_connections:
             self.client_connections[client_sid]['backend'].emit('ice-candidate', data)
         else:
-            self.emit('error', 'Backend connection not found', to=client_sid)
+            self.socketio_app.emit('error', 'Backend connection not found', to=client_sid, namespace='/meeting')

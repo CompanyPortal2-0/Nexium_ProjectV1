@@ -128,7 +128,7 @@ def room(meet_id, user_email):
     if userMail not in participants:
         return "You are not a member of this meet", 403
 
-    return render_template("video.html", meet_id=meet_id, user_mail=userMail, server="https://192.168.0.94:7050") #hadi badelha dynamic
+    return render_template("video.html", meet_id=meet_id, user_mail=userMail, server="192.168.100.135:7050") #hadi badelha dynamic
 
 
 # =================== NEW MEETING API ENDPOINTS ===================
@@ -340,6 +340,114 @@ def get_meeting_log(meeting_id):
     except Exception as e:
         logger.error(f"Error getting log: {str(e)}")
         return jsonify({"error": "Failed to get log"}), 500
+
+
+# =================== USER MEETING ENDPOINTS ===================
+
+@app.route("/meetings/user/<email>", methods=["GET"])
+def get_user_meetings(email):
+    """
+    Get all meetings related to a specific user - both created and invited.
+    
+    Query params:
+        - filter: 'all', 'created', or 'invited' (default: 'all')
+        - is_active: true/false to filter by active status
+        - include_details: true/false to include creator details
+    """
+    try:
+        filter_type = request.args.get('filter', 'all')
+        is_active = request.args.get('is_active')
+        include_details = request.args.get('include_details', 'false').lower() == 'true'
+        
+        # Convert is_active to boolean if provided
+        is_active_bool = None
+        if is_active:
+            is_active_bool = is_active.lower() == 'true'
+        
+        result = MeetHelper.getUserMeetings(email, filter_type, is_active_bool, include_details)
+        
+        if result.get('success', True):
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 404
+            
+    except Exception as e:
+        logger.error(f"Error getting user meetings: {str(e)}")
+        return jsonify({"success": False, "error": "Failed to get user meetings"}), 500
+
+
+@app.route("/meetings/user/<email>/upcoming", methods=["GET"])
+def get_user_upcoming_meetings(email):
+    """
+    Get all upcoming (active) meetings for a user, separated by status.
+    Returns meetings that are either not started or in progress.
+    """
+    try:
+        result = MeetHelper.getUserUpcomingMeetings(email)
+        
+        if result.get('success', True):
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 404
+            
+    except Exception as e:
+        logger.error(f"Error getting upcoming meetings: {str(e)}")
+        return jsonify({"success": False, "error": "Failed to get upcoming meetings"}), 500
+
+
+@app.route("/meetings/<meeting_id>/delete", methods=["DELETE"])
+def delete_meeting_by_user(meeting_id):
+    """
+    Soft delete a meeting - only the creator can delete it.
+    Requires user_email in request body.
+    """
+    try:
+        data = request.json or {}
+        user_email = data.get('user_email')
+        
+        if not user_email:
+            return jsonify({
+                "success": False,
+                "error": "user_email is required to delete a meeting"
+            }), 422
+        
+        result, status_code = MeetHelper.deleteMeetingByUser(meeting_id, user_email)
+        return jsonify(result), status_code
+            
+    except Exception as e:
+        logger.error(f"Error deleting meeting: {str(e)}")
+        return jsonify({"success": False, "error": "Failed to delete meeting"}), 500
+
+
+@app.route("/meetings/<meeting_id>/hard-delete", methods=["DELETE"])
+def hard_delete_meeting(meeting_id):
+    """
+    Permanently delete a meeting - only the creator can do this.
+    Requires user_email and confirm=true in request body.
+    """
+    try:
+        data = request.json or {}
+        user_email = data.get('user_email')
+        confirm = data.get('confirm', False)
+        
+        if not user_email:
+            return jsonify({
+                "success": False,
+                "error": "user_email is required to delete a meeting"
+            }), 422
+        
+        if not confirm:
+            return jsonify({
+                "success": False,
+                "error": "Please set 'confirm': true to permanently delete this meeting"
+            }), 422
+        
+        result, status_code = MeetHelper.hardDeleteMeeting(meeting_id, user_email, confirm)
+        return jsonify(result), status_code
+            
+    except Exception as e:
+        logger.error(f"Error hard deleting meeting: {str(e)}")
+        return jsonify({"success": False, "error": "Failed to permanently delete meeting"}), 500
 
 
 # =================== SOCKETIO EVENTS ===================
