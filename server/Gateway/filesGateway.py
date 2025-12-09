@@ -1,3 +1,23 @@
+"""
+⚠️ DEPRECATED - Legacy File Gateway
+=====================================
+This file is DEPRECATED and should not be used for new development.
+
+The file operations have been integrated into the main Gateway (app.py) using the
+DataHelper class following the established helper architecture pattern.
+
+New endpoints available in main Gateway (port 7050):
+    - POST /files/upload     - Upload a file (JWT required)
+    - GET  /files            - List all files (JWT required)
+    - GET  /files/<filename> - Download a file (JWT required)
+
+This standalone file gateway (port 8000) is kept for backward compatibility only.
+Please migrate your clients to use the main Gateway endpoints.
+
+Migration Date: December 2024
+Reason: Architecture consolidation - all services now routed through main Gateway
+"""
+
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
@@ -5,6 +25,15 @@ from dotenv import load_dotenv
 import os
 import requests
 from io import BytesIO
+import warnings
+
+# Emit deprecation warning when this module is loaded
+warnings.warn(
+    "filesGateway.py is deprecated. Use the main Gateway (app.py) endpoints instead: "
+    "POST /files/upload, GET /files, GET /files/<filename>",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 load_dotenv()
 

@@ -43,7 +43,7 @@ def upload_file():
     ## Check if file is in request
     #if 'file' not in request.files:
     #    return jsonify({"error": "No file provided"}), 400
-    user_email="manager@mas3oud.tcom"
+    user_email=(request.headers).get("X-User-Email")
     file = request.files['file']
     
     if file.filename == '':

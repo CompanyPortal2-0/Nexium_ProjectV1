@@ -23,7 +23,7 @@ from flask_socketio import SocketIO, emit, Namespace
 import socketio
 
 # Import helper classes
-from helpers import AuthHelper, UserHelper, ActivityHelper, MeetingHelper, HealthHelper
+from helpers import AuthHelper, UserHelper, ActivityHelper, MeetingHelper, HealthHelper, DataHelper
 
 load_dotenv()
 app = Flask(__name__)
@@ -691,6 +691,81 @@ def hard_delete_meeting_route(meeting_id):
     
     result, status_code = MeetingHelper.hard_delete_meeting(meeting_id, current_user_email, confirm)
     return jsonify(result), status_code
+
+
+# =================== FILE ENDPOINTS ===================
+
+@app.route('/files/upload', methods=['POST'])
+@jwt_required()
+def upload_file():
+    """
+    Upload a file using DataHelper.
+    
+    Request:
+        - Content-Type: multipart/form-data
+        - file: The file to upload
+        
+    Returns:
+        JSON response with upload result
+    """
+    current_user_email = AuthHelper.get_user_email_from_jwt_identity(get_jwt_identity())
+    
+    if not current_user_email:
+        return jsonify({"success": False, "error": "Could not determine user email from token"}), 401
+    
+    if 'file' not in request.files:
+        return jsonify({"success": False, "error": "No file provided"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"success": False, "error": "No file selected"}), 400
+    
+    result, status_code = DataHelper.upload_file(file, current_user_email)
+    return jsonify(result), status_code
+
+
+@app.route('/files', methods=['GET'])
+@jwt_required()
+def get_all_files():
+    """
+    Get list of all files using DataHelper.
+    
+    Returns:
+        JSON response with list of files
+    """
+    result, status_code = DataHelper.get_all_files()
+    return jsonify(result), status_code
+
+
+@app.route('/files/<filename>', methods=['GET'])
+@jwt_required()
+def get_file(filename):
+    """
+    Get a specific file by filename using DataHelper.
+    
+    Args:
+        filename: The name of the file to retrieve
+        
+    Returns:
+        File content or JSON error response
+    """
+    from flask import Response
+    
+    content, status_code, content_type = DataHelper.get_file(filename)
+    
+    if status_code == 200:
+        # Return binary file content
+        return Response(
+            content,
+            status=status_code,
+            mimetype=content_type,
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"'
+            }
+        )
+    else:
+        # Return error JSON
+        return jsonify(content), status_code
 
 
 # =================== MAIN ENTRY POINT ===================

@@ -27,7 +27,7 @@ class FileHelper:
             data = {'user_email': user_email}
             
             response = requests.post(
-                f"{self.base_url}/file/upload",
+                f"{self.base_url}/files/upload",
                 files=files,
                 headers=FileHelper.HEADERS,
                 data=data
@@ -57,7 +57,7 @@ class FileHelper:
         """
         try:
             response = requests.get(
-                f"{self.base_url}/file/get/{filename}",
+                f"{self.base_url}/files/get/{filename}",
                                 headers=FileHelper.HEADERS
             )
             
@@ -91,7 +91,7 @@ class FileHelper:
         """
         try:
             response = requests.get(
-                f"{self.base_url}/file/getAll",
+                f"{self.base_url}/files/getAll",
                                 headers=FileHelper.HEADERS,
 
             )
